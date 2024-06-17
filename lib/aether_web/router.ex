@@ -18,6 +18,9 @@ defmodule AetherWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/about", PageController, :about
+
+    resources "/thoughts", ThoughtsController
   end
 
   # Other scopes may use custom stacks.

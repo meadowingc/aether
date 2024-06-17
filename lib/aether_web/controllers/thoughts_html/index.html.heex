@@ -1,0 +1,25 @@
+<.header>
+  Listing Thoughts
+  <:actions>
+    <.link href={~p"/thoughts/new"}>
+      <.button>New Thoughts</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<.table id="thoughts" rows={@thoughts_collection} row_click={&JS.navigate(~p"/thoughts/#{&1}")}>
+  <:col :let={thoughts} label="Text"><%= thoughts.text %></:col>
+  <:col :let={thoughts} label="Antidote"><%= thoughts.antidote %></:col>
+  <:col :let={thoughts} label="Expires on"><%= thoughts.expires_on %></:col>
+  <:action :let={thoughts}>
+    <div class="sr-only">
+      <.link navigate={~p"/thoughts/#{thoughts}"}>Show</.link>
+    </div>
+    <.link navigate={~p"/thoughts/#{thoughts}/edit"}>Edit</.link>
+  </:action>
+  <:action :let={thoughts}>
+    <.link href={~p"/thoughts/#{thoughts}"} method="delete" data-confirm="Are you sure?">
+      Delete
+    </.link>
+  </:action>
+</.table>

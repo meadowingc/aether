@@ -1,0 +1,17 @@
+<.header>
+  Thoughts <%= @thoughts.id %>
+  <:subtitle>This is a thoughts record from your database.</:subtitle>
+  <:actions>
+    <.link href={~p"/thoughts/#{@thoughts}/edit"}>
+      <.button>Edit thoughts</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<.list>
+  <:item title="Text"><%= @thoughts.text %></:item>
+  <:item title="Antidote"><%= @thoughts.antidote %></:item>
+  <:item title="Expires on"><%= @thoughts.expires_on %></:item>
+</.list>
+
+<.back navigate={~p"/thoughts"}>Back to thoughts</.back>

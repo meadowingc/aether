@@ -1,0 +1,8 @@
+<.header>
+  Edit Thoughts <%= @thoughts.id %>
+  <:subtitle>Use this form to manage thoughts records in your database.</:subtitle>
+</.header>
+
+<.thoughts_form changeset={@changeset} action={~p"/thoughts/#{@thoughts}"} />
+
+<.back navigate={~p"/thoughts"}>Back to thoughts</.back>
