@@ -1,0 +1,25 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  default: task --list-all
+
+  deps: mix deps.get
+  run: mix phx.server
+  interactive: iex -S mix phx.server
+  create-db: mix ecto.create
+
+  # create-migration: mix ecto.gen.migration add_title_to_pastes
+
+  # create-context:
+  #   - mix phx.gen.context Accounts User users email:string password_hash:string
+  #   - mix ecto.migrate
+
+  release:
+    env:
+      MIX_ENV: prod
+    cmds:
+      - mix release
+      # start with: _build/prod/rel/my_app/bin/my_app start
+      # run migrations with: _build/prod/rel/my_app/bin/my_app eval "MyApp.Release.migrate"
