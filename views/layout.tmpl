@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" class="[scrollbar-gutter:stable]">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    {% function block.title() %}Aether{% end %}
+    <title>{% block.title() %}</title>
+
+    <link rel="stylesheet" href="/static/app.css" />
+</head>
+
+<body class="bg-white antialiased">
+    {% function block.layout_content() %}
+    [default layout content]
+    {% end %}
+
+    {% block.layout_content() %}
+</body>
+
+</html>
