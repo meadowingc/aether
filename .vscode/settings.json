@@ -22,4 +22,5 @@
     "Lua.workspace.library": [
         ".lua/fullmoon.lua"
     ],
+    "gitlens.currentLine.enabled": false,
 }

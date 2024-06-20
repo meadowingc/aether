@@ -1,0 +1,80 @@
+{% function block.layout_content() %}
+<div class="navbar">
+  <div class="title">aether</div>
+  <a href="/about">About</a>
+</div>
+
+{% for index, thought in ipairs(thoughts) do %}
+<div class="thought-card" style="animation-delay: {%& index-1 %}s;">
+  <p class="thought-text">{%& thought.text %}</p>
+  {% if thought.antidote then %}
+  <hr />
+  <p class="thought-antidote"><i>Instead, I should:</i> {%& thought.antidote %}</p>
+  {% end %}
+
+  <p class="thought-timestamp">{%& thought.inserted_at %}</p>
+</div>
+{% end %}
+
+{% render('components/thoughts_form', {validation_error = validation_error}) %}
+
+<script type="text/javascript">
+  window.addEventListener('load', () => {
+    const cards = document.querySelectorAll('.thought-card');
+    const form = document.querySelector('.form-container');
+    const formRect = form.getBoundingClientRect();
+    const grid = { rows: 5, columns: 5 }; // Define your grid size here
+
+    // Calculate the size of each cell
+    const cellWidth = window.innerWidth / grid.columns;
+    const cellHeight = window.innerHeight / grid.rows;
+
+    // Create an array to keep track of which cells are occupied
+    const occupiedCells = Array(grid.rows * grid.columns).fill(false);
+
+    // Calculate which cells are occupied by the form
+    const formLeftCell = Math.floor(formRect.left / cellWidth);
+    const formRightCell = Math.ceil(formRect.right / cellWidth);
+    const formTopCell = Math.floor(formRect.top / cellHeight);
+    const formBottomCell = Math.ceil(formRect.bottom / cellHeight);
+
+    // Mark the cells occupied by the form as occupied
+    for (let row = formTopCell; row < formBottomCell; row++) {
+      for (let col = formLeftCell; col < formRightCell; col++) {
+        occupiedCells[row * grid.columns + col] = true;
+      }
+    }
+
+    cards.forEach((card) => {
+      let cell;
+      if (occupiedCells.includes(false)) {
+        do {
+          // Choose a random cell
+          cell = Math.floor(Math.random() * grid.rows * grid.columns);
+        } while (occupiedCells[cell]); // Repeat if the cell is already occupied
+      } else {
+        // If all cells are occupied, choose a random cell without checking
+        cell = Math.floor(Math.random() * grid.rows * grid.columns);
+      }
+
+      // Mark the cell as occupied
+      occupiedCells[cell] = true;
+
+      // Calculate the position of the cell
+      const left = (cell % grid.columns) * cellWidth;
+      const top = Math.floor(cell / grid.columns) * cellHeight;
+
+      // Position the card in the cell
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+
+      setTimeout(() => {
+        card.style.opacity = '1';
+      }, 200 + Math.random() * 1000);
+    });
+  });
+</script>
+
+{% end %}
+
+{% render('layout') %}

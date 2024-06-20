@@ -70,13 +70,37 @@ fm.setTemplate("hello", [[
 ]])
 
 fm.setRoute("/", function(r)
-    return fm.serveContent("home", {
-        thoughts = db:fetchAll("select * from thoughts;")
+    return fm.serveContent("home_fancy", {
+        thoughts = db:fetchAll("select * from thoughts;"),
     })
 end)
 
 fm.setRoute("/about", function(r)
     return fm.serveContent("about")
+end)
+
+
+local thoughtsValidator = fm.makeValidator {
+    { "text",     optional = false, minlen = 3, maxlen = 600, msg = "Invalid %s thought format" },
+    { "antidote", optional = true,  minlen = 0, maxlen = 600, msg = "Invalid %s antidote format" },
+    otherwise = function(validation_error)
+        return fm.serveContent("home_fancy", {
+            thoughts = db:fetchAll("select * from thoughts;"),
+            validation_error = validation_error,
+        })
+    end,
+}
+fm.setRoute(fm.GET { "/thoughts" }, fm.serveRedirect('/'))
+fm.setRoute(fm.POST { "/thoughts", _ = thoughtsValidator }, function(r)
+    fm.logInfo("Creating thought: " .. r.params.text)
+
+    local antidote = r.params.antidote
+    if type(antidote) == "string" and #antidote == 0 then
+        antidote = nil
+    end
+    db:execute("INSERT INTO thoughts (text, antidote) VALUES (?, ?)", r.params.text, antidote)
+    -- r.params.name
+    return fm.serveRedirect("/")
 end)
 
 fm.setRoute("/hello/:name", function(r)

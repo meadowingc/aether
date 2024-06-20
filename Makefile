@@ -40,15 +40,10 @@ install: clean
 kill-daemon:
 	killall redbean.com || true
 	rm redbean.pid || true
-	sleep 1 
+	sleep 2
 
 package:
-	zip redbean.com .init.lua
-	zip redbean.com favicon.ico
-	zip -r redbean.com .lua/
-	zip -r redbean.com ./views/
-	zip -r redbean.com ./static/
-
+	zip -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
 
 # meltdown-rel:
 # 	kill -USR2 $(cat redbean.pid)
