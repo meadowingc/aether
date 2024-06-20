@@ -1,0 +1,25 @@
+{
+    "Lua.codeLens.enable": true,
+    "Lua.hint.enable": true,
+    "Lua.runtime.builtin": {
+        "basic": "enable",
+        "builtin": "enable",
+        "table": "enable",
+        "io": "enable"
+    },
+    "Lua.runtime.path": [
+        "?.lua",
+        "?/init.lua",
+        ".lua/?.lua"
+    ],
+    "Lua.semantic.keyword": false,
+    "Lua.type.inferParamType": true,
+    "Lua.runtime.version": "Lua 5.4",
+    "Lua.diagnostics.globals": [
+        "require"
+    ],
+    "Lua.diagnostics.libraryFiles": "Enable",
+    "Lua.workspace.library": [
+        ".lua/fullmoon.lua"
+    ],
+}

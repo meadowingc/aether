@@ -40,9 +40,11 @@ install: clean
 kill-daemon:
 	killall redbean.com || true
 	rm redbean.pid || true
+	sleep 1 
 
 package:
 	zip redbean.com .init.lua
+	zip redbean.com favicon.ico
 	zip -r redbean.com .lua/
 	zip -r redbean.com ./views/
 	zip -r redbean.com ./static/

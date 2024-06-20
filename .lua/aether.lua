@@ -3,6 +3,41 @@ local fm = require "fullmoon"
 fm.setRoute("/static/*", fm.serveAsset)
 
 local db = fm.makeStorage("aether.sqlite3")
+db:pragma("journal_mode=WAL")
+db:pragma("synchronous=NORMAL")
+
+db:execute [[
+  CREATE TABLE IF NOT EXISTS migrations (
+    name TEXT PRIMARY KEY
+  )
+]]
+
+local function run_migration(name, sql)
+    local res = db:fetchOne("SELECT name FROM migrations WHERE name = ?", name)
+    if res ~= db.NONE then
+        -- The migration has already been run, so return early
+        return
+    end
+
+    db:execute(sql)
+    db:execute("INSERT INTO migrations (name) VALUES (?)", name)
+end
+
+-- run migrations
+run_migration("1__create_thoughts_table", [[
+  CREATE TABLE IF NOT EXISTS thoughts (
+    id INTEGER PRIMARY KEY,
+    text TEXT NOT NULL,
+    antidote TEXT,
+    inserted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- add some initial thoughts
+  INSERT INTO thoughts (text, antidote) VALUES
+    ('Thought 1', 'Antidote 1'),
+    ('Thought 2', 'Antidote 2'),
+    ('Thought 3', 'Antidote 3');
+]])
 
 fm.setTemplate({
     "/views/",
@@ -11,7 +46,7 @@ fm.setTemplate({
 
 fm.setTemplate("header", [[
   <h1>
-    {% function block.greet() %} 
+    {% function block.greet() %}
       Hi
     {% end %}
 
@@ -20,23 +55,24 @@ fm.setTemplate("header", [[
 ]])
 
 fm.setTemplate("hello", [[
-{% function block.layout_content() %}
-    <h1>potato</h1>
-    Hello, {%& name %}
+    {% function block.layout_content() %}
+        <h1>potato</h1>
+        Hello, {%& name %}
 
-    {% function block.greet() %} 
-    Hello overriden
+        {% function block.greet() %}
+        Hello overriden
+        {% end %}
+
+        {% render('header', {title=title}) %}!
     {% end %}
 
-    {% render('header', {title=title}) %}!
-{% end %}
-
-{% render('layout') %}
-
+    {% render('layout') %}
 ]])
 
 fm.setRoute("/", function(r)
-    return fm.serveContent("home")
+    return fm.serveContent("home", {
+        thoughts = db:fetchAll("select * from thoughts;")
+    })
 end)
 
 fm.setRoute("/about", function(r)

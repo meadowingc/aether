@@ -4,16 +4,17 @@
     <a href="/about">About</a>
   </div>
 
-  <%= for {thought, index} <- Enum.with_index(@thoughts) do %>
-    <div class="thought-card" style={"animation-delay: #{index}s;"}>
-      <p class="thought-text"><%= thought.text %></p>
-      <%= if thought.antidote do %>
+  {% for index, thought in ipairs(thoughts) do %}
+    <div class="thought-card" style="animation-delay: {%& index-1 %}s;">
+      <p class="thought-text">{%& thought.text %}</p>
+      {% if thought.antidote then %}
         <hr />
-        <p class="thought-antidote"><i>Instead, I should:</i> <%= thought.antidote %></p>
-      <% end %>
-      <p class="thought-timestamp"><%= thought.inserted_at |> NaiveDateTime.to_string() %></p>
+        <p class="thought-antidote"><i>Instead, I should:</i> {%& thought.antidote %}</p>
+      {% end %}
+
+      <p class="thought-timestamp">{%& thought.inserted_at %}</p>
     </div>
-  <% end %>
+  {% end %}
 
   <div class="form-container">
     <.simple_form :let={f} for={@changeset} action={~p"/thoughts"}>
