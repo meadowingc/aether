@@ -2,7 +2,7 @@
 charset = utf-8
 
 [*.fnl]
-indent_size = 1
+indent_size = 2
 indent_style = space
 
 [*.tmpl]
