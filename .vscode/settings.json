@@ -24,4 +24,6 @@
         ".lua/fullmoon.lua"
     ],
     "gitlens.currentLine.enabled": false,
+    "fennel-lsx.server-version": "external",
+    "vsc-fnlfmt.execPath": "/usr/local/bin/fnlfmt",
 }

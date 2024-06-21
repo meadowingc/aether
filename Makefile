@@ -1,5 +1,5 @@
 dev: install
-    watchexec --debounce 1000 -r -w . --exts lua,tmpl "make restart-dev"
+	watchexec --debounce 1000 -r -w . --exts lua,fnl,tmpl "make restart-dev"
 	make kill-daemon
 
 # ./redbean.com -vmbagd -p 3298 -D ./views/ -D ./static/ -L ./redbean.log -P ./redbean.pid
@@ -11,6 +11,7 @@ clean:
 	rm redbean.log || true
 	rm redbean.pid || true
 
+# working commiti: d7b1919b29
 install-compiled: clean
 	mkdir -p .build
 	if [ ! -d .build/cosmopolitan ]; then \
@@ -44,6 +45,13 @@ kill-daemon:
 
 package:
 	zip -0 -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
+
+
+install-fennel-ls:	
+	cd /tmp && \
+	git clone https://git.sr.ht/~xerool/fennel-ls && \
+	cd fennel-ls && \
+	make && sudo make install
 
 # meltdown-rel:
 # 	kill -USR2 $(cat redbean.pid)

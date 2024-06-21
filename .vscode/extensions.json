@@ -1,5 +1,10 @@
 {
     "recommendations": [
-        "sumneko.lua"
+        "sumneko.lua",
+        "adjuvant.fennel-ls",
+        "editorconfig.editorconfig",
+        "adjuvant.fennel-syntax",
+        "shaunlebron.vscode-parinfer",
+        "midouest.vsc-fnlfmt"
     ]
 }
