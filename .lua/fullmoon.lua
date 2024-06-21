@@ -315,7 +315,7 @@ local function parseMultipart(body, ctype)
       -- find the header (if any)
       if string.sub(body, bol, bol + CRLFlen - 1) == CRLF then -- no headers
         bol = bol + CRLFlen
-      else                                                 -- headers
+      else                                                     -- headers
         -- find the end of headers (CRLF+CRLF)
         local boh, eoh = 1, string.find(body, CRLF .. CRLF, bol, true)
         if not eoh then return nil, "missing expected end of headers at position " .. bol end
@@ -422,7 +422,7 @@ end
 ---comment
 ---@param name string | table
 ---@param code? string | table
----@param opt? table  
+---@param opt? table
 ---@return table
 local function setTemplate(name, code, opt)
   -- name as a table designates a list of prefixes for assets paths
@@ -1094,6 +1094,10 @@ local function scheduler()
   checkSchedule(time)
 end
 local function setSchedule(exp, func, opts)
+  if schedules[exp] then
+    error("Schedule already exists for expression: " .. exp)
+  end
+
   if type(exp) == "table" then opts, exp, func = exp, unpack(exp) end
   opts = opts or {}
   argerror(type(opts) == "table", 3, "(table expected)")
@@ -1157,8 +1161,8 @@ local function makeValidator(rules)
       -- (1) directly with a params-like table passed
       -- (2) as a filter on an existing (scalar) field
       -- (3) as a filter on an non-existing field (to get request.params table)
-      if val == nil then val = getRequest().params end   -- case (3)
-      if type(val) ~= "table" and #rules > 0 then        -- case (2)
+      if val == nil then val = getRequest().params end -- case (3)
+      if type(val) ~= "table" and #rules > 0 then      -- case (2)
         -- convert the passed value into a hash based on the name in the first rule
         val = { [rules[1][1]] = val }
       end
@@ -1441,7 +1445,7 @@ local function handleRequest(path)
   req = setmetatable({
     params = setmetatable({}, {
       __index = function(t, k)
-        local mk = k .. "[]"   -- if the multi-key exists, then use it instead
+        local mk = k .. "[]" -- if the multi-key exists, then use it instead
         if not HasParam(k) and HasParam(mk) then k = mk end
         if not HasParam(k) and not rawget(t, MPKEY) then
           local ct = GetHeader("Content-Type")
@@ -1711,11 +1715,11 @@ local function fmgRender(val)
       -- (like fennel) to use the latter syntax and
       -- requires no attributes to be present and the table in the second
       -- index to only have attributes and no array values
-      local validx = (not writeAttrs(opt)     -- if there are no attributes
-        and type(opt[2]) == "table"           -- and the second element is a table
-        and #opt[2] == 0                      -- with no values
-        and writeAttrs(opt[2])                -- that has attributes
-        and 3 or 2)                           -- then shift sub-element processing by one
+      local validx = (not writeAttrs(opt) -- if there are no attributes
+        and type(opt[2]) == "table"       -- and the second element is a table
+        and #opt[2] == 0                  -- with no values
+        and writeAttrs(opt[2])            -- that has attributes
+        and 3 or 2)                       -- then shift sub-element processing by one
       if htmlVoidTags[tag:lower()] then
         Write("/>")
         return

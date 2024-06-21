@@ -1,5 +1,5 @@
 dev: install
-	watchexec -r -w . --exts lua,tmpl "sleep 1 && make restart-dev"
+    watchexec --debounce 1000 -r -w . --exts lua,tmpl "make restart-dev"
 	make kill-daemon
 
 # ./redbean.com -vmbagd -p 3298 -D ./views/ -D ./static/ -L ./redbean.log -P ./redbean.pid
@@ -43,7 +43,7 @@ kill-daemon:
 	sleep 2
 
 package:
-	zip -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
+	zip -0 -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
 
 # meltdown-rel:
 # 	kill -USR2 $(cat redbean.pid)

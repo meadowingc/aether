@@ -16,7 +16,8 @@
     "Lua.type.inferParamType": true,
     "Lua.runtime.version": "Lua 5.4",
     "Lua.diagnostics.globals": [
-        "require"
+        "require",
+        "table"
     ],
     "Lua.diagnostics.libraryFiles": "Enable",
     "Lua.workspace.library": [

@@ -121,15 +121,36 @@ fm.setRoute("/stream", function()
 end)
 
 -- https://github.com/pkulchenko/fullmoon/tree/master?tab=readme-ov-file#schedules
---------------- ┌─────────── minute (0-59)
---------------- │ ┌───────── hour (0-23)
---------------- │ │ ┌─────── day of the month (1-31)
---------------- │ │ │ ┌───── month (1-12 or Jan-Dec)
---------------- │ │ │ │ ┌─── day of the week (0-6 or Sun-Mon)
---------------- │ │ │ │ │ --
---------------- │ │ │ │ │ --
+-------------------- ┌─────────── minute (0-59)
+-------------------- │ ┌───────── hour (0-23)
+-------------------- │ │ ┌─────── day of the month (1-31)
+-------------------- │ │ │ ┌───── month (1-12 or Jan-Dec)
+-------------------- │ │ │ │ ┌─── day of the week (0-6 or Sun-Mon)
+-------------------- │ │ │ │ │ --
+-------------------- │ │ │ │ │ --
 fm.setSchedule("* * * * *", function()
-    fm.logInfo("every minute --- hoho")
+    local quotes = {
+        "To be, or not to be: that is the question.",
+        "All the world's a stage, and all the men and women merely players.",
+        "Good night, good night! Parting is such sweet sorrow.",
+        "We know what we are, but know not what we may be.",
+        "Love all, trust a few, do wrong to none.",
+        "Give every man thy ear, but few thy voice.",
+        "The course of true love never did run smooth.",
+        "Better three hours too soon than a minute too late.",
+        "Nothing will come of nothing: dare mighty things.",
+        "Uneasy lies the head that wears a crown." }
+    local quote = quotes[math.random(#quotes)]
+    fm.logInfo("It's one minute and all is well: " .. quote)
+end)
+
+--- delete old thoughts every 10 minutes.
+fm.setSchedule("*/30 * * * *", function()
+    -- TODO: we should move these to some archive or soft delete them rather
+    -- than removing them completely.
+    db:execute [[
+        DELETE FROM thoughts WHERE inserted_at < datetime('now', '-24 hours');
+    ]]
 end)
 
 fm.run({
