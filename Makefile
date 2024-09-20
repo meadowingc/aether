@@ -1,4 +1,4 @@
-dev: install
+dev: kill-daemon install
 	watchexec --debounce 1000 -r -w . --exts lua,fnl,tmpl "make restart-dev"
 	make kill-daemon
 
@@ -44,7 +44,7 @@ kill-daemon:
 	sleep 2
 
 package:
-	zip -0 -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
+	zip -r redbean.com .init.lua favicon.ico .lua/ ./views/ ./static/
 
 
 install-fennel-ls:	

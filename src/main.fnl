@@ -134,3 +134,10 @@
                           :hash :SHA256
                           :name :aether_session
                           :secret true}})
+
+; (fm.run {:cookie-options {:httponly true :samesite :Strict}
+;          :session-options {:format :lua
+;                           :hash :SHA256
+;                           :name :aether_session
+;                           :secret true}})
+
