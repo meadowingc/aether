@@ -581,7 +581,8 @@ local function setRoute(opts, ...)
     local pos = findRoute(route, opts) or #routes + 1
     if opts.routeName then
       if routes[opts.routeName] then LogWarn("route '%s' already registered", opts.routeName) end
-      routes[opts.routeName], opts.routeName = pos, nil
+      routes[opts.routeName] = pos
+      opts.routeName = nil
     end
     local regex, params = route2regex(route)
     local tmethod = type(opts.method)
