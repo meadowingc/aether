@@ -26,4 +26,8 @@
     "gitlens.currentLine.enabled": false,
     "fennel-lsx.server-version": "external",
     "vsc-fnlfmt.execPath": "/usr/local/bin/fnlfmt",
+    "files.exclude": {
+        "**/bin": true,
+        "**/obj": true
+    },
 }
