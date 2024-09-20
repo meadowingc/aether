@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>#(title)</title>
+</head>
+
+<body>
+    <h1>#(title)</h1>
+    <p>The time is #now()</p>
+
+    <form action="/todos" method="post">
+        <input type="text" name="title" placeholder="Enter a title">
+        <button type="submit">Create</button>
+    </form>
+
+    <p>There are #count(todos) todos.</p>
+    #if(count(todos) > 0):
+        <p>All todos:</p>
+        #for(todo in todos):
+            <p>Title: #(todo.title)</p>
+        #endfor
+    #endif
+</body>
+</html>
