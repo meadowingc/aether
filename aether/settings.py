@@ -26,7 +26,7 @@ SECRET_KEY = "django-insecure-42bk4iuy%zeb!d2z&z%#y9b49-#tow_^7mdwa^@lvfw-$@oo9=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_PROD", "False") == "False"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["aether.meadow.cafe"]
 
 
 # Application definition
