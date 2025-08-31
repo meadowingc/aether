@@ -16,5 +16,8 @@ shell:
 create-admin:
 	uv run manage.py createsuperuser
 
-serve:
-	DJANGO_PROD=True uv run gunicorn aether.wsgi --bind "127.0.0.1:4287"
+collectstatic:
+	uv run manage.py collectstatic --noinput
+
+serve: collectstatic
+	DJANGO_PROD=True gunicorn aether.wsgi --bind "127.0.0.1:4287"

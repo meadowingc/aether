@@ -28,6 +28,11 @@ DEBUG = os.getenv("DJANGO_PROD", "False") == "False"
 
 ALLOWED_HOSTS = ["aether.meadow.cafe"]
 
+# When behind a reverse proxy/HTTPS terminator (e.g., Caddy), ensure CSRF works
+# and that Django recognizes the original client scheme.
+CSRF_TRUSTED_ORIGINS = ["https://aether.meadow.cafe"]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # Application definition
 
@@ -116,7 +121,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+# Always use an absolute URL path for static files so the proxy can serve them.
+STATIC_URL = "/static/"
+
+# Where 'collectstatic' will place compiled/static assets for production serving
+# by a web server (e.g., Caddy). Ensure this directory exists or let Django create it.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# User-uploaded media (if used). Configure your proxy to serve this too.
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
