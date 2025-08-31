@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{% static 'aether_notes/style.css' %}">
+</head>
+<body>
+
+    <h1>Hello potato, there are {{ latest_note_list | length }} notes</h1>
+
+    <a href="{% url 'about' %}">About</a>
+
+    <form action="{% url 'create_note' %}" method="post">
+        {% csrf_token %}
+        <label for="note_text">New Note:</label>
+        <input type="text" id="note_text" name="text">
+        <br>
+        <label for="note_author">Author:</label>
+        <input type="text" id="note_author" name="author">
+        <br>
+        <input type="submit" value="Create Note">
+    </form>
+
+    {% if latest_note_list %}
+        <ul>
+        {% for note in latest_note_list %}
+            <li><code>{{ note.pub_date }}</code> {{ note.author }} -- {{ note.text }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No notes are available.</p>
+    {% endif %}
+
+</body>
+</html>

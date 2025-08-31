@@ -1,20 +1,17 @@
 dev:
-	python manage.py runserver 
+	uv run manage.py runserver 
 
 migrate:
-	python manage.py migrate
+	uv run manage.py migrate
 
 makemigrations:
-	python manage.py makemigrations
+	uv run manage.py makemigrations
+
+check:
+	uv run manage.py check
 
 shell:
-	sudo heroku run python manage.py shell --app bear-blog
+	uv run manage.py shell
 
-logs:
-	sudo heroku logs --tail --app bear-blog --force-colors | grep "app\[web" | grep -Ev "(GET|POST|HEAD|OPTIONS)"
-
-404:
-	sudo heroku logs --tail --app bear-blog --force-colors | grep "heroku\[" | grep "404"
-
-router:
-	sudo heroku logs --tail --app bear-blog --force-colors | grep "heroku\[router" | grep -Ev "feed"
+create-admin:
+	uv run manage.py createsuperuser
