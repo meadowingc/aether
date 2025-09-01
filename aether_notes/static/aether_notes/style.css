@@ -336,6 +336,10 @@ body::after {
   line-height: 1.5;
   color: var(--ink);
 }
+.note-text a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .note-meta {
   display: flex;
   gap: 8px;
@@ -347,6 +351,16 @@ body::after {
 }
 .note-meta .dot {
   opacity: 0.5;
+}
+
+.note-del {
+  color: #b84a4a;
+  text-decoration: none;
+  opacity: 0.8;
+}
+.note-del:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 /* Gentle, organic drift animation */

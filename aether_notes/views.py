@@ -43,6 +43,7 @@ def create_note(request):
             return redirect(reverse("index"))
 
         author = (request.POST.get("author") or "").strip() or "anonymous"
+        created_device_id = (request.POST.get("device_id") or "").strip() or None
         # Soft cap to 2000 chars
         if len(text) > 2000:
             text = text[:2000]
@@ -51,6 +52,7 @@ def create_note(request):
             text=text,
             author=author,
             pub_date=timezone.now(),
+            created_device_id=created_device_id,
         )
         new_note.save()
 
@@ -94,3 +96,31 @@ def witness(request):
     # Fetch updated count
     note.refresh_from_db(fields=["views"])
     return JsonResponse({"ok": True, "views": note.views})
+
+
+@require_POST
+def delete_note(request):
+    """Delete a note if and only if the caller's device_id matches creator.
+
+    Expects form or x-www-form-urlencoded with: note_id, device_id
+    Returns JSON { ok: bool } with 200 on success, 403 on forbidden, 404 if missing.
+    """
+    try:
+        note_id = int(request.POST.get("note_id"))
+        device_id = (request.POST.get("device_id") or "").strip()
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+
+    if not note_id or not device_id:
+        return JsonResponse({"ok": False, "error": "missing_fields"}, status=400)
+
+    try:
+        note = Note.objects.get(pk=note_id)
+    except Note.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    if not note.created_device_id or note.created_device_id != device_id:
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    note.delete()
+    return JsonResponse({"ok": True})
