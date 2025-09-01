@@ -44,15 +44,14 @@ body {
   line-height: 1.45;
   color: var(--ink);
   /* Stratosphere gradient with purple atmosphere */
-  background: 
-    radial-gradient(
-      ellipse 1200px 600px at 50% -10%, 
-      rgba(138, 101, 175, 0.2), 
+  background: radial-gradient(
+      ellipse 1200px 600px at 50% -10%,
+      rgba(138, 101, 175, 0.2),
       transparent 60%
     ),
     radial-gradient(
-      ellipse 800px 400px at 30% 20%, 
-      rgba(176, 133, 212, 0.1), 
+      ellipse 800px 400px at 30% 20%,
+      rgba(176, 133, 212, 0.1),
       transparent 50%
     ),
     linear-gradient(
@@ -76,8 +75,7 @@ body::after {
 }
 /* Softer, more organic stars */
 body::before {
-  background-image: 
-    radial-gradient(var(--star-2) 0.8px, transparent 1.8px),
+  background-image: radial-gradient(var(--star-2) 0.8px, transparent 1.8px),
     radial-gradient(var(--star-1) 1.1px, transparent 2.2px),
     radial-gradient(var(--star-2) 0.5px, transparent 1.4px),
     radial-gradient(var(--star-1) 0.3px, transparent 0.9px);
@@ -100,8 +98,10 @@ body::after {
   bottom: 0;
   top: auto;
   height: 35vh;
-  background-image: 
-    radial-gradient(var(--earth-pattern) 1.2px, transparent 2.8px),
+  background-image: radial-gradient(
+      var(--earth-pattern) 1.2px,
+      transparent 2.8px
+    ),
     radial-gradient(var(--earth-pattern) 0.8px, transparent 2px),
     radial-gradient(var(--earth-pattern) 1.6px, transparent 3.2px);
   background-size: 180px 200px, 120px 140px, 240px 280px;
@@ -187,7 +187,9 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  padding-bottom: 1em;
+  margin-bottom: 2em;
+  border-bottom: 1px solid var(--border);
 }
 .note-form textarea {
   width: 100%;
@@ -365,7 +367,8 @@ body::after {
   }
 }
 @keyframes gentle-drift {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateZ(0) rotate(0.3deg) translateY(0px);
   }
   25% {
