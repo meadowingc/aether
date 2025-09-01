@@ -17,7 +17,7 @@ create-admin:
 	uv run manage.py createsuperuser
 
 collectstatic:
-	uv run manage.py collectstatic --noinput
+	uv run manage.py collectstatic --noinput --clear 
 
 serve: collectstatic
 	DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py
