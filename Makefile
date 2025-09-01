@@ -19,5 +19,5 @@ create-admin:
 collectstatic:
 	uv run manage.py collectstatic --noinput --clear 
 
-serve: collectstatic
+serve: migrate collectstatic
 	DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py
