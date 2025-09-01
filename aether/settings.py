@@ -19,10 +19,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 if not (BASE_DIR / ".env").exists():
     from django.core.management.utils import get_random_secret_key
-    (BASE_DIR / ".env").write_text(f"""
-DJANGO_SECRET_KEY={get_random_secret_key()}
-DJANGO_PROD=False
-""".strip())
+    # Quote the secret to avoid shell parse errors if the file is sourced by tools
+    secret = get_random_secret_key().replace("'", "\\'")
+    (BASE_DIR / ".env").write_text("\n".join([
+        f"DJANGO_SECRET_KEY='{secret}'",
+        "DJANGO_PROD=False",
+    ]))
 
 dotenv.load_dotenv(BASE_DIR / ".env")
 
@@ -50,6 +52,11 @@ INSTALLED_APPS = [
     "aether_notes.apps.AetherNotesConfig",
     "django.contrib.admin",
     "django.contrib.auth",
+    # Two-factor auth (TOTP via Google Authenticator)
+    "django_otp",
+    "django_otp.plugins.otp_static",
+    "django_otp.plugins.otp_totp",
+    "two_factor",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -62,6 +69,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Ensure authenticated users have an OTP device verified in the request
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -149,3 +158,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Authentication URLs (use two-factor views for login/logout)
+LOGIN_URL = "two_factor:login"
+LOGIN_REDIRECT_URL = "two_factor:profile"

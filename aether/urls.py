@@ -16,8 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from two_factor.urls import urlpatterns as tf_urls
 
 urlpatterns = [
+    # Two-factor authentication routes (login, setup, profile, backup tokens)
+    path("", include(tf_urls)),
     path('admin/', admin.site.urls),
     path('', include('aether_notes.urls')),
 ]
