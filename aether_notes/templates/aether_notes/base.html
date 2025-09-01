@@ -1,58 +1,75 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex, noarchive">
-        <script>
-            // Apply saved theme as early as possible to avoid flashes
-            (function(){
-                try {
-                    var t = localStorage.getItem('aether_theme');
-                    if (t === 'light' || t === 'dark') {
-                        document.documentElement.setAttribute('data-theme', t);
-                    }
-                } catch (e) {}
-            })();
-        </script>
-    <link rel="stylesheet" href="{% static 'aether_notes/style.css' %}">
+  <head>
+    <meta charset="utf-8" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌌</text></svg>"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, noarchive" />
+    <script>
+      // Apply saved theme as early as possible to avoid flashes
+      (function () {
+        try {
+          var t = localStorage.getItem("aether_theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="{% static 'aether_notes/style.css' %}" />
     <title>{% block title %}Aether{% endblock %}</title>
     {% block extra_head %}{% endblock %}
-</head>
-<body>
+  </head>
+  <body>
     <header class="site-header">
-                <h1>Aether</h1>
-                <div class="header-actions">
-                        <button id="theme_toggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">🌙</button>
-                        {% block header_link %}
-                        <a class="about-link" href="{% url 'about' %}">About</a>
-                        {% endblock %}
-                </div>
+      <h1>🌌 Aether</h1>
+      <div class="header-actions">
+        <button
+          id="theme_toggle"
+          class="theme-toggle"
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          🌙
+        </button>
+        {% block header_link %}
+          <a class="about-link" href="{% url 'about' %}">About</a>
+        {% endblock %}
+      </div>
     </header>
 
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
-        <script>
-            (function(){
-                var btn = document.getElementById('theme_toggle');
-                if (!btn) return;
-                function current(){
-                    return document.documentElement.getAttribute('data-theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                }
-                function setTheme(t){
-                    document.documentElement.setAttribute('data-theme', t);
-                    try { localStorage.setItem('aether_theme', t); } catch(e){}
-                    btn.textContent = t === 'dark' ? '🌙' : '☀️';
-                }
-                // init icon
-                setTheme(current());
-                btn.addEventListener('click', function(){
-                    setTheme(current() === 'dark' ? 'light' : 'dark');
-                });
-            })();
-        </script>
-        {% block scripts %}{% endblock %}
-</body>
+    <main class="container">{% block content %}{% endblock %}</main>
+    <script>
+      (function () {
+        var btn = document.getElementById("theme_toggle");
+        if (!btn) return;
+        function current() {
+          return (
+            document.documentElement.getAttribute("data-theme") ||
+            (window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light")
+          );
+        }
+        function setTheme(t) {
+          document.documentElement.setAttribute("data-theme", t);
+          try {
+            localStorage.setItem("aether_theme", t);
+          } catch (e) {}
+          btn.textContent = t === "dark" ? "🌙" : "☀️";
+        }
+        // init icon
+        setTheme(current());
+        btn.addEventListener("click", function () {
+          setTheme(current() === "dark" ? "light" : "dark");
+        });
+      })();
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
 </html>

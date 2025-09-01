@@ -57,7 +57,6 @@ def create_note(request):
     return redirect(reverse("index"))
 
 
-
 def about(request):
     return render(request, "aether_notes/about.html")
 
@@ -88,7 +87,9 @@ def witness(request):
             Note.objects.filter(pk=note.pk).update(views=F("views") + 1)
     except IntegrityError:
         # Already witnessed; ignore
-        return JsonResponse({"ok": True, "already": True, "views": note.views}, status=200)
+        return JsonResponse(
+            {"ok": True, "already": True, "views": note.views}, status=200
+        )
 
     # Fetch updated count
     note.refresh_from_db(fields=["views"])
