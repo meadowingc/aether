@@ -1,5 +1,5 @@
 dev:
-	uv run manage.py runserver 
+	uv run manage.py runserver
 
 migrate:
 	uv run manage.py migrate
@@ -20,4 +20,4 @@ collectstatic:
 	uv run manage.py collectstatic --noinput
 
 serve: collectstatic
-	DJANGO_PROD=True gunicorn aether.wsgi --bind "127.0.0.1:4287"
+	DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py

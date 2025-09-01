@@ -12,21 +12,31 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+if not (BASE_DIR / ".env").exists():
+    from django.core.management.utils import get_random_secret_key
+    (BASE_DIR / ".env").write_text(f"""
+DJANGO_SECRET_KEY={get_random_secret_key()}
+DJANGO_PROD=False
+""".strip())
+
+dotenv.load_dotenv(BASE_DIR / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-42bk4iuy%zeb!d2z&z%#y9b49-#tow_^7mdwa^@lvfw-$@oo9="
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or "django-insecure-please-set-DJANGO_SECRET_KEY-in-.env"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_PROD", "False") == "False"
 
-ALLOWED_HOSTS = ["aether.meadow.cafe"]
+ALLOWED_HOSTS = ["aether.meadow.cafe", "127.0.0.1"]
 
 # When behind a reverse proxy/HTTPS terminator (e.g., Caddy), ensure CSRF works
 # and that Django recognizes the original client scheme.
