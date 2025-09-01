@@ -1,36 +1,132 @@
-{% load static %}
+{% extends "aether_notes/base.html" %}
+{% block title %}Aether{% endblock %}
+{% block content %}
+        <form class="note-form" action="{% url 'create_note' %}" method="post">
+            {% csrf_token %}
+            <label class="sr-only" for="note_text">New Note</label>
+            <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required></textarea>
+            <div class="counter-row"><span id="note_counter" class="char-counter">0/2000</span></div>
+            <div class="form-row">
+                <label class="sr-only" for="note_author">Author (optional)</label>
+                <input type="text" id="note_author" name="author" placeholder="Your name (optional)">
+                <label class="remember"><input type="checkbox" id="remember_author"> Remember</label>
+                <button type="submit">Throw</button>
+            </div>
+            <p class="hint">Public for ~48 hours. Please avoid personal info.</p>
+        </form>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="{% static 'aether_notes/style.css' %}">
-</head>
-<body>
+        {% if latest_note_list %}
+        <section id="soup" class="soup">
+            {% for note in latest_note_list %}
+            <article class="note-card" data-note-id="{{ note.id }}" style="opacity: {{ note.opacity|default:1 }};">
+                <div class="note-text">{{ note.text|linebreaksbr }}</div>
+                <footer class="note-meta">
+                    <span class="author">{{ note.author|default:"anonymous" }}</span>
+                    <span class="dot">•</span>
+                    <span class="expires">expires in {{ note.expires_in }}</span>
+                    <span class="dot">•</span>
+                    <span class="views" data-views>{{ note.views }}{% if note.views == 1 %} witness{% else %} witnessed{% endif %}</span>
+                </footer>
+            </article>
+            {% endfor %}
+        </section>
+        {% else %}
+            <p class="empty">The void is quiet. Be the first to speak.</p>
+        {% endif %}
+{% endblock %}
 
-    <h1>Hello potato, there are {{ latest_note_list | length }} notes</h1>
+{% block scripts %}
+    <script>
+        // Local storage for author
+        (function() {
+            const authorInput = document.getElementById('note_author');
+            const remember = document.getElementById('remember_author');
+            const saved = localStorage.getItem('aether_author') || '';
+            if (saved) {
+                authorInput.value = saved;
+                remember.checked = true;
+            }
+            remember.addEventListener('change', () => {
+                if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+                else localStorage.removeItem('aether_author');
+            });
+            authorInput.addEventListener('input', () => {
+                if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+            });
+            // Live character counter for note text
+            const textarea = document.getElementById('note_text');
+            const counter = document.getElementById('note_counter');
+            if (textarea && counter) {
+                const max = parseInt(textarea.getAttribute('maxlength') || '2000', 10);
+                const update = () => {
+                    const len = textarea.value.length;
+                    counter.textContent = `${len}/${max}`;
+                    const ratio = len / max;
+                    counter.classList.toggle('near', ratio >= 0.9);
+                };
+                textarea.addEventListener('input', update);
+                update();
+            }
+        })();
 
-    <a href="{% url 'about' %}">About</a>
+        // Lightweight device id for unique witness tracking
+        function getDeviceId() {
+            let id = localStorage.getItem('aether_device_id');
+            if (!id) {
+                id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+                );
+                localStorage.setItem('aether_device_id', id);
+            }
+            return id;
+        }
 
-    <form action="{% url 'create_note' %}" method="post">
-        {% csrf_token %}
-        <label for="note_text">New Note:</label>
-        <input type="text" id="note_text" name="text">
-        <br>
-        <label for="note_author">Author:</label>
-        <input type="text" id="note_author" name="author">
-        <br>
-        <input type="submit" value="Create Note">
-    </form>
+        // IntersectionObserver: count a witness when a card is actually seen.
+        function setupWitnessObserver() {
+            const seenKey = id => `aether_seen_${id}`;
+            const io = new IntersectionObserver(entries => {
+                for (const entry of entries) {
+                    if (!entry.isIntersecting) continue;
+                    const card = entry.target;
+                    const id = parseInt(card.dataset.noteId, 10);
+                    if (!id || localStorage.getItem(seenKey(id))) {
+                        io.unobserve(card);
+                        continue;
+                    }
+                    // Mark locally to avoid duplicate posts even if server dedupes.
+                    localStorage.setItem(seenKey(id), '1');
+                    io.unobserve(card);
+                    // Fire-and-forget witness hit
+                    fetch('{% url "witness" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
+                    }).then(r => r.ok ? r.json() : null).then(data => {
+                        if (!data || !data.ok) return;
+                        const el = card.querySelector('[data-views]');
+                        if (!el) return;
+                        const count = data.views;
+                        if (typeof count === 'number') {
+                            el.textContent = `${count}${count === 1 ? ' witness' : ' witnessed'}`;
+                        }
+                    }).catch(() => {});
+                }
+            }, { threshold: 0.6 });
 
-    {% if latest_note_list %}
-        <ul>
-        {% for note in latest_note_list %}
-            <li><code>{{ note.pub_date }}</code> {{ note.author }} -- {{ note.text }}</li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>No notes are available.</p>
-    {% endif %}
+            document.querySelectorAll('.note-card').forEach(card => io.observe(card));
+        }
 
-</body>
-</html>
+        // CSRF helper (Django docs)
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+    // Run once on load
+    setupWitnessObserver();
+        </script>
+{% endblock %}

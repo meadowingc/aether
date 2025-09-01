@@ -1,5 +1,7 @@
-<h1>About</h1>
-
-<p>This is the about page of Aether Notes.</p>
-
-<a href="{% url 'index' %}">Home</a>
+{% extends "aether_notes/base.html" %}
+{% block title %}About • Aether{% endblock %}
+{% block content %}
+	<h1>About</h1>
+	<p>This is the about page of Aether Notes.</p>
+	<p>Notes are public for ~48 hours, then they fade away. No accounts required.</p>
+{% endblock %}
