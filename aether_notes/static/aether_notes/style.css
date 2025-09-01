@@ -1,5 +1,39 @@
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light dark;
+  /* Stratosphere palette (light) with a hint of purple */
+  --bg-start: #f6f3ff;   /* faint violet haze */
+  --bg-mid: #ece8ff;     /* soft mid */
+  --bg-end: #e6edff;     /* cool sky tint */
+  --ink: #0f172a;        /* slate-900 */
+  --muted: #475569;      /* slate-600 */
+  --border: #c7c1ee;     /* violet-tinted border */
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --accent: #3f3cbb;     /* indigo-700 */
+  --warn: #b45309;       /* amber-700 */
+  --star-1: rgba(99, 102, 241, 0.32);  /* indigo glow */
+  --star-2: rgba(255, 255, 255, 0.22); /* white faint */
+  /* Earth band (day) */
+  --earth-high: #c7f2d8; /* light canopy */
+  --earth-low: #86efac;  /* emerald 300 */
+  --earth-pattern: rgba(34, 197, 94, 0.20); /* emerald 500 speckles */
+}
+[data-theme="dark"] {
+    /* Stratosphere palette (dark) with purple tint */
+    --bg-start: #0b0d28;  /* deep indigo */
+    --bg-mid: #101635;    /* mid */
+    --bg-end: #0f172a;    /* slate-900 */
+    --ink: #e5e7eb;       /* zinc-200 */
+    --muted: #94a3b8;     /* slate-400 */
+    --border: #2a2f4a;    /* indigo-slate */
+    --card-bg: rgba(20, 24, 45, 0.88); /* indigo-tinted */
+    --accent: #a78bfa;    /* violet-400 */
+  --star-1: rgba(167, 139, 250, 0.55);
+  --star-2: rgba(255, 255, 255, 0.40);
+  /* Earth band (night) */
+  --earth-high: #0a1020; /* coastal dark */
+  --earth-low: #070b14;  /* deep sea night */
+  --earth-pattern: rgba(255, 214, 102, 0.28); /* city lights warm */
 }
 * {
   box-sizing: border-box;
@@ -8,6 +42,50 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   line-height: 1.35;
+  color: var(--ink);
+  /* Stratosphere to horizon (earth band drawn via ::after) */
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.20), transparent 60%),
+    linear-gradient(to bottom, var(--bg-start) 0%, var(--bg-mid) 50%, var(--bg-end) 100%);
+  letter-spacing: 0.1px;
+  position: relative; /* establish stacking for star layers */
+}
+/* Blurred minimal stars behind content */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Stars: combine small + larger glows into a single layer */
+body::before {
+  background-image:
+    radial-gradient(var(--star-2) 0.9px, transparent 1.6px),
+    radial-gradient(var(--star-1) 1.2px, transparent 2px),
+    radial-gradient(var(--star-2) 0.6px, transparent 1.2px);
+  background-size: 220px 220px, 320px 320px, 140px 140px;
+  background-repeat: repeat, repeat, repeat;
+  background-position: 0 0, 80px 40px, 140px 100px;
+  filter: blur(0.4px);
+  opacity: 0.6;
+}
+/* Dark mode: denser and brighter stars */
+[data-theme="dark"] body::before {
+  background-size: 160px 160px, 260px 260px, 120px 120px;
+  opacity: 0.85;
+  filter: blur(0.3px);
+}
+/* Earth near the horizon: bottom band with pattern (trees by day, city lights by night) */
+body::after {
+  left: 0; right: 0; bottom: 0; top: auto; height: 45vh;
+  background-image: radial-gradient(var(--earth-pattern) 1.4px, transparent 2.6px);
+  background-size: 260px 260px;
+  background-repeat: repeat;
+  background-position: 50% 100%;
+  opacity: 0.6;
+  filter: blur(0.4px);
 }
 
 .site-header {
@@ -17,13 +95,28 @@ body {
   padding: 12px 16px;
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.75), rgba(248,248,255,0.55));
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  z-index: 10; /* above content and stars */
+}
+/* Dark mode: clearly darker navbar */
+[data-theme="dark"] .site-header {
+  background: linear-gradient(to bottom, rgba(7, 9, 22, 0.95), rgba(7, 9, 22, 0.86));
+  border-bottom-color: rgba(148, 163, 184, 0.25);
 }
 .site-header h1 {
   margin: 0;
   font-size: 18px;
+}
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.theme-toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+  cursor: pointer;
 }
 .about-link {
   color: inherit;
@@ -35,6 +128,8 @@ body {
   padding: 12px 12px 24px;
   max-width: 820px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1; /* below header, above stars */
 }
 
 .note-form {
@@ -45,8 +140,8 @@ body {
 }
 .note-form textarea {
   width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0;
+  border: 1px solid var(--border);
   padding: 10px 12px;
   font-size: 16px;
   resize: vertical;
@@ -59,17 +154,17 @@ body {
 .note-form input[type="text"] {
   flex: 1;
   min-width: 0;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0;
+  border: 1px solid var(--border);
   padding: 8px 10px;
   font-size: 14px;
 }
 .note-form button {
   padding: 10px 14px;
-  border-radius: 8px;
-  border: 0;
-  background: #111;
-  color: #fff;
+  border-radius: 0;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
   font-weight: 600;
 }
 .note-form .remember {
@@ -91,7 +186,7 @@ body {
   opacity: 0.6;
 }
 .char-counter.near {
-  color: #b45309;
+  color: var(--warn);
   opacity: 1;
 }
 .sr-only {
@@ -109,18 +204,18 @@ body {
 /* Masonry-like with CSS columns; simple and mobile-friendly */
 .soup {
   column-width: 280px;
-  column-gap: 12px;
+  column-gap: 16px;
 }
 .note-card {
   display: inline-block;
   width: 100%;
   break-inside: avoid;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin: 0 0 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 12px 12px;
+  margin: 0 0 16px;
+  box-shadow: none;
   transform: translateZ(0);
 }
 .note-text {
@@ -134,7 +229,7 @@ body {
   gap: 6px;
   align-items: center;
   font-size: 12px;
-  opacity: 0.8;
+  color: var(--muted);
 }
 .note-meta .dot {
   opacity: 0.5;
@@ -143,13 +238,13 @@ body {
 /* Subtle drift animation for atmosphere */
 @media (prefers-reduced-motion: no-preference) {
   .note-card {
-    animation: drift 18s ease-in-out infinite;
+  animation: drift 22s ease-in-out infinite;
   }
   .note-card:nth-child(3n) {
-    animation-duration: 22s;
+  animation-duration: 26s;
   }
   .note-card:nth-child(4n) {
-    animation-duration: 26s;
+  animation-duration: 30s;
   }
 }
 @keyframes drift {
@@ -157,7 +252,7 @@ body {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-3px);
+  transform: translateY(-2px);
   }
   100% {
     transform: translateY(0px);

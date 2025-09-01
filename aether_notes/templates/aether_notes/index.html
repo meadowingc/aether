@@ -23,7 +23,7 @@
                 <footer class="note-meta">
                     <span class="author">{{ note.author|default:"anonymous" }}</span>
                     <span class="dot">•</span>
-                    <span class="expires">expires in {{ note.expires_in }}</span>
+                    <span class="expires">fades in {{ note.expires_in }}</span>
                     <span class="dot">•</span>
                     <span class="views" data-views>{{ note.views }}{% if note.views == 1 %} witness{% else %} witnessed{% endif %}</span>
                 </footer>
@@ -128,5 +128,5 @@
 
     // Run once on load
     setupWitnessObserver();
-        </script>
+    </script>
 {% endblock %}
