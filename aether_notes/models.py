@@ -11,6 +11,8 @@ class Note(models.Model):
     author = models.CharField(max_length=100, null=True, blank=True)
     # Denormalized count of unique device "witnesses". Updated via NoteView.
     views = models.PositiveIntegerField(default=0)
+    # Denormalized count of user flags (unique per device). Updated via NoteFlag.
+    flags = models.PositiveIntegerField(default=0)
     # Device that created the note (client-generated UUID). Used for delete authorization.
     created_device_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
 
@@ -33,6 +35,20 @@ class NoteView(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["note", "device_id"], name="unique_note_device_view"),
+        ]
+        indexes = [
+            models.Index(fields=["device_id", "created_at"]),
+        ]
+
+class NoteFlag(models.Model):
+    """Unique record that a device has flagged a note."""
+    note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name="note_flags")
+    device_id = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["note", "device_id"], name="unique_note_device_flag"),
         ]
         indexes = [
             models.Index(fields=["device_id", "created_at"]),

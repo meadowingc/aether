@@ -1,12 +1,14 @@
 import datetime
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
-from django.utils import timezone
-from django.urls import reverse
-from django.views.decorators.http import require_POST
+
 from django.db import IntegrityError, transaction
 from django.db.models import F
-from .models import Note, NoteView
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from .models import Note, NoteFlag, NoteView
 
 
 # Create your views here.
@@ -124,3 +126,37 @@ def delete_note(request):
 
     note.delete()
     return JsonResponse({"ok": True})
+
+
+@require_POST
+def flag_note(request):
+    """Toggle a flag for a note per device (flag/unflag). Expects: note_id, device_id."""
+    try:
+        note_id = int(request.POST.get("note_id"))
+        device_id = (request.POST.get("device_id") or "").strip()
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+
+    if not note_id or not device_id:
+        return JsonResponse({"ok": False, "error": "missing_fields"}, status=400)
+
+    try:
+        note = Note.objects.get(pk=note_id)
+    except Note.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    # Try to create a flag; if it already exists, unflag instead.
+    try:
+        with transaction.atomic():
+            NoteFlag.objects.create(note=note, device_id=device_id)
+            Note.objects.filter(pk=note.pk).update(flags=F("flags") + 1)
+            note.refresh_from_db(fields=["flags"])
+            return JsonResponse({"ok": True, "flags": note.flags, "flagged": True})
+    except IntegrityError:
+        # Already flagged by this device — unflag (delete) and decrement count if possible.
+        with transaction.atomic():
+            NoteFlag.objects.filter(note=note, device_id=device_id).delete()
+            # Prevent negative values.
+            Note.objects.filter(pk=note.pk, flags__gt=0).update(flags=F("flags") - 1)
+            note.refresh_from_db(fields=["flags"])
+            return JsonResponse({"ok": True, "flags": note.flags, "flagged": False})

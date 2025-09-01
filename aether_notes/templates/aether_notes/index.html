@@ -33,6 +33,8 @@
                 <span class="dot">•</span>
                 <a href="#" class="note-del" title="Delete this note" aria-label="Delete">del</a>
             </span>
+            <span class="dot">•</span>
+            <button type="button" class="flag-btn" aria-label="Flag this note as inappropriate" title="Flag this note as inappropriate">⚑</button>
           </footer>
         </article>
       {% endfor %}
@@ -189,6 +191,56 @@
           }).catch(() => alert('Failed to delete. Please try again.'));
         }
         document.addEventListener('click', onClick);
+    })();
+
+    // Flag handler — one flag per device
+    (function() {
+      function markInitialFlags() {
+        document.querySelectorAll('.note-card').forEach(card => {
+          const id = parseInt(card.dataset.noteId, 10);
+          if (!id) return;
+          if (localStorage.getItem(`aether_flagged_${id}`)) {
+            const btn = card.querySelector('.flag-btn');
+            if (btn) btn.classList.add('flagged');
+          }
+        });
+      }
+      function onClickFlag(e) {
+        const btn = e.target.closest('.flag-btn');
+        if (!btn) return;
+        const card = btn.closest('.note-card');
+        const id = card && parseInt(card.dataset.noteId, 10);
+        if (!id) return;
+
+        fetch('{% url "flag_note" %}', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
+        }).then(r => r.json().catch(() => ({}))).then(data => {
+          if (data && data.ok) {
+            if (data.flagged) {
+              btn.classList.add('flagged');
+              if (typeof data.flags === 'number') {
+                btn.title = `Flagged (${data.flags})`;
+              } else {
+                btn.title = 'Flagged';
+              }
+              localStorage.setItem(`aether_flagged_${id}`, '1');
+            } else {
+              btn.classList.remove('flagged');
+              if (typeof data.flags === 'number') {
+                btn.title = `Flag (${data.flags})`;
+              } else {
+                btn.title = 'Flag';
+              }
+              localStorage.removeItem(`aether_flagged_${id}`);
+            }
+          }
+        }).catch(() => {});
+      }
+      document.addEventListener('click', onClickFlag);
+      // initialize
+      markInitialFlags();
     })();
   </script>
 {% endblock scripts %}

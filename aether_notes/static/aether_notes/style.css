@@ -363,6 +363,43 @@ body::after {
   text-decoration: underline;
 }
 
+/* Subtle flag button for reporting inappropriate notes */
+.flag-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 16px;
+  border-radius: 2px;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+.flag-btn:hover,
+.flag-btn:focus {
+  color: var(--accent);
+  opacity: 0.95;
+  transform: translateY(-1px);
+  outline: none;
+}
+.flag-btn.flagged {
+  color: var(--warn);
+  opacity: 0.9;
+}
+
+/* Inline placement inside note-meta footer */
+.note-meta .flag-btn {
+  position: static;
+  top: auto;
+  right: auto;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
 /* Gentle, organic drift animation */
 @media (prefers-reduced-motion: no-preference) {
   .note-card {
