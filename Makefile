@@ -1,8 +1,16 @@
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -o pipefail -c
+
+.PHONY: dev migrate format makemigrations check shell create-admin collectstatic serve
+
 dev:
 	uv run manage.py runserver
 
 migrate:
 	uv run manage.py migrate
+
+format:
+	@git ls-files -z -- '*.html' | xargs -0r uv run djade
 
 makemigrations:
 	uv run manage.py makemigrations

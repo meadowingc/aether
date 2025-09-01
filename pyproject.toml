@@ -10,3 +10,8 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "django-two-factor-auth[phonenumbers]>=1.15.5",
 ]
+
+[dependency-groups]
+dev = [
+    "djade>=1.5.0",
+]

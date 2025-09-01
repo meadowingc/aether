@@ -1,9 +1,10 @@
 {% extends "aether_notes/base.html" %}
+
 {% block title %}About • Aether{% endblock %}
 
 {% block header_link %}
-<a class="about-link" href="{% url 'index' %}">Home</a>
-{% endblock %}
+  <a class="about-link" href="{% url 'index' %}">Home</a>
+{% endblock header_link %}
 
 {% block content %}
   <article class="note-card">
@@ -13,4 +14,4 @@
     <hr/>
     <div class="note-text" style="margin-top: 1.25rem;"><small>Made by <a href="https://meadow.cafe" target="_blank">Meadow</a> | <a href="https://codeberg.org/meadowingc/aether" target="_blank">Source Code</a></small></div>
   </article>
-{% endblock %}
+{% endblock content %}
