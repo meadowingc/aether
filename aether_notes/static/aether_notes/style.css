@@ -144,6 +144,10 @@ body::after {
   font-style: italic;
   letter-spacing: 1px;
 }
+.site-header h1 a {
+  text-decoration: none;
+  color: inherit;
+}
 .header-actions {
   display: flex;
   align-items: center;
@@ -314,18 +318,14 @@ body::after {
   padding: 12px 14px;
   margin: 0 0 16px;
   box-shadow: 0 1px 6px rgba(45, 37, 45, 0.05);
-  transform: translateZ(0) rotate(0.3deg);
   transition: all 0.3s ease;
   position: relative;
 }
-.note-card:nth-child(even) {
-  transform: translateZ(0) rotate(-0.2deg);
-}
-.note-card:nth-child(3n) {
-  transform: translateZ(0) rotate(0.1deg);
+.note-card h2 {
+  padding: 0;
+  margin: 0.75rem 0;
 }
 .note-card:hover {
-  transform: translateZ(0) rotate(0deg) translateY(-2px);
   box-shadow: 0 3px 12px rgba(45, 37, 45, 0.08);
 }
 .note-text {
@@ -369,16 +369,16 @@ body::after {
 @keyframes gentle-drift {
   0%,
   100% {
-    transform: translateZ(0) rotate(0.3deg) translateY(0px);
+    transform: translateZ(0) rotate(0) translateY(0px);
   }
   25% {
-    transform: translateZ(0) rotate(-0.1deg) translateY(-1px) translateX(0.5px);
+    transform: translateZ(0) rotate(0) translateY(-1px) translateX(0.5px);
   }
   50% {
-    transform: translateZ(0) rotate(0.2deg) translateY(-2px) translateX(-0.3px);
+    transform: translateZ(0) rotate(0) translateY(-2px) translateX(-0.3px);
   }
   75% {
-    transform: translateZ(0) rotate(-0.2deg) translateY(-1px) translateX(0.2px);
+    transform: translateZ(0) rotate(0) translateY(-1px) translateX(0.2px);
   }
 }
 
