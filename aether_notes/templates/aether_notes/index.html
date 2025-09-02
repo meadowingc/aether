@@ -68,6 +68,14 @@
         }
         // Live character counter for note text
         const textarea = document.getElementById('note_text');
+        // Rotate placeholder each load
+        if (textarea) {
+          const placeholders = [
+            'Go on, throw it into the void…',
+            "You're not alone, the stars play witness to your thoughts",
+          ];
+          textarea.placeholder = placeholders[Math.floor(Math.random() * placeholders.length)];
+        }
         const counter = document.getElementById('note_counter');
         if (textarea && counter) {
             const max = parseInt(textarea.getAttribute('maxlength') || '2000', 10);
