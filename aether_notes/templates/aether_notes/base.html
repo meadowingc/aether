@@ -10,14 +10,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, noarchive" />
     <script>
-      // Apply saved theme as early as possible to avoid flashes
+      // Apply saved theme or default to dark as early as possible to avoid flashes
       (function () {
         try {
           var t = localStorage.getItem("aether_theme");
-          if (t === "light" || t === "dark") {
-            document.documentElement.setAttribute("data-theme", t);
-          }
-        } catch (e) {}
+          document.documentElement.setAttribute(
+            "data-theme",
+            t === "light" || t === "dark" ? t : "dark"
+          );
+        } catch (e) {
+          // If localStorage is not accessible, still default to dark
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
       })();
     </script>
     <link rel="stylesheet" href="{% static 'aether_notes/style.css' %}" />
@@ -48,13 +52,7 @@
         var btn = document.getElementById("theme_toggle");
         if (!btn) return;
         function current() {
-          return (
-            document.documentElement.getAttribute("data-theme") ||
-            (window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light")
-          );
+          return document.documentElement.getAttribute("data-theme") || "dark";
         }
         function setTheme(t) {
           document.documentElement.setAttribute("data-theme", t);
