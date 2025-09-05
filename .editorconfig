@@ -4,7 +4,7 @@ root = true
 indent_style = space
 indent_size = 2
 
-[*.exs]
+[*.{exs,ex,heex}]
 indent_style = space
 indent_size = 2
 
