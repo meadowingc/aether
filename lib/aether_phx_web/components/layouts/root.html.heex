@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link
+      rel="icon"
+      href={"data:image/svg+xml," <> URI.encode(~s(<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>))}
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, noarchive" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <script>
+      // Early theme application (avoids flash)
+      (function () {
+        try {
+          var t = localStorage.getItem("aether_theme");
+          document.documentElement.setAttribute(
+            "data-theme",
+            (t === "light" || t === "dark") ? t : "dark"
+          );
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <.live_title default="Aether">
+      {assigns[:page_title]}
+    </.live_title>
+    <link rel="stylesheet" href={~p"/css/style.css"} />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1><a href={~p"/"}>🌌 Aether</a></h1>
+      <div class="header-actions">
+        <button
+          id="theme_toggle"
+          class="theme-toggle"
+          aria-label="Toggle theme"
+          title="Toggle theme">🌙</button>
+        <%= if Phoenix.Controller.current_path(@conn) == ~p"/about" do %>
+          <a class="about-link" href={~p"/"}>Home</a>
+        <% else %>
+          <a class="about-link" href={~p"/about"}>About</a>
+        <% end %>
+      </div>
+    </header>
+
+    {@inner_content}
+  </body>
+</html>

@@ -1,34 +1,45 @@
-SHELL := /usr/bin/env bash
-.SHELLFLAGS := -o pipefail -c
-
-.PHONY: dev migrate format makemigrations check shell create-admin collectstatic serve pull
-
+# Run Phoenix in dev
 dev:
-	uv run manage.py runserver
+	mix phx.server
 
+# Initial setup (deps + migrate) in dev
+setup:
+	mix deps.get && mix ecto.migrate
+
+# Run prod migrations (requires env vars + built release or Mix in prod)
 migrate:
-	uv run manage.py migrate
+	MIX_ENV=prod mix ecto.migrate
 
-format:
-	@git ls-files -z -- '*.html' | xargs -0r uv run djade
+assets:
+	MIX_ENV=prod mix assets.deploy
 
-makemigrations:
-	uv run manage.py makemigrations
+# Full production release build
+# Requires env vars:
+#   SECRET_KEY_BASE (mix phx.gen.secret)
+#   DATABASE_PATH (absolute path to sqlite file)
+#   PHX_SERVER=true
+# Optional: PORT (default 4000), ADMIN_USER, ADMIN_PASS
+release:
+	MIX_ENV=prod mix deps.get --only prod
+	MIX_ENV=prod mix compile
+	MIX_ENV=prod mix assets.deploy
+	MIX_ENV=prod mix release --overwrite
 
-check:
-	uv run manage.py check
+	cp .env _build/prod/rel/aether_phx/.env
 
-shell:
-	uv run manage.py shell
+# Start release (expects _build/prod/rel/aether_phx created by release)
+run-prod: release
+	_build/prod/rel/aether_phx/bin/aether_phx eval "AetherPhx.Release.migrate"
+	PORT=$${PORT:-4000} PHX_HOST=aether.meadow.cafe PHX_SERVER=true _build/prod/rel/aether_phx/bin/aether_phx start
 
-create-admin:
-	uv run manage.py createsuperuser
+# Start with IEx attached (daemonized code introspection)
+daemon:
+	cd _build/prod/rel/aether_phx && PORT=$${PORT:-4000} ./bin/aether_phx start_iex
 
-collectstatic:
-	uv run manage.py collectstatic --noinput --clear
+# Remote console into running node
+console:
+	cd _build/prod/rel/aether_phx && ./bin/aether_phx remote
 
-pull:
-	git pull
-
-serve: pull migrate collectstatic
-	DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py
+# Clean build artifacts
+clean:
+	mix clean && rm -rf _build/prod

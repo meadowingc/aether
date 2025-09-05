@@ -1,0 +1,234 @@
+<%= # Index page: form + recent notes %>
+<section class="container">
+  <form class="note-form" action={~p"/create-note"} method="post">
+    <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+    <label class="sr-only" for="note_text">New Note</label>
+    <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required></textarea>
+    <div class="counter-row"><span id="note_counter" class="char-counter">0/2000</span></div>
+    <div class="form-row">
+      <label class="sr-only" for="note_author">Author (optional)</label>
+      <input type="text" id="note_author" name="author" placeholder="Your name (optional)">
+      <input type="hidden" id="note_device_id" name="device_id" value="">
+      <label class="remember"><input type="checkbox" id="remember_author"> Remember</label>
+      <button type="submit">Throw</button>
+    </div>
+    <p class="hint">Public for ~48 hours. Please avoid personal info.</p>
+  </form>
+
+  <%= if @notes != [] do %>
+    <section id="soup" class="soup">
+      <%= for note <- @notes do %>
+        <.render_note note={note} />
+      <% end %>
+    </section>
+  <% else %>
+    <p class="empty">The void is quiet. Be the first to speak.</p>
+  <% end %>
+</section>
+
+<script>
+(function () {
+  // Theme init (mirrors Django base.html early script)
+  try {
+    var t = localStorage.getItem("aether_theme");
+    document.documentElement.setAttribute("data-theme", (t === "light" || t === "dark") ? t : "dark");
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+})();
+
+function getCSRF() {
+  var m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.content : "";
+}
+
+// Local storage for author + device id
+(function() {
+  const authorInput = document.getElementById('note_author');
+  const remember = document.getElementById('remember_author');
+  const saved = localStorage.getItem('aether_author') || '';
+  if (saved) {
+    authorInput.value = saved;
+    remember.checked = true;
+  }
+  remember.addEventListener('change', () => {
+    if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+    else localStorage.removeItem('aether_author');
+  });
+  authorInput.addEventListener('input', () => {
+    if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+  });
+  const deviceField = document.getElementById('note_device_id');
+  if (deviceField) deviceField.value = getDeviceId();
+
+  // Character counter
+  const textarea = document.getElementById('note_text');
+  if (textarea) {
+    const placeholders = [
+      'Go on, throw it into the void…',
+      "You're not alone, the stars play witness to your thoughts"
+    ];
+    textarea.placeholder = placeholders[Math.floor(Math.random()*placeholders.length)];
+  }
+  const counter = document.getElementById('note_counter');
+  if (textarea && counter) {
+    const max = parseInt(textarea.getAttribute('maxlength') || '2000', 10);
+    const update = () => {
+      const len = textarea.value.length;
+      counter.textContent = len + '/' + max;
+      const ratio = len / max;
+      counter.classList.toggle('near', ratio >= 0.9);
+    };
+    textarea.addEventListener('input', update);
+    update();
+  }
+})();
+
+function getDeviceId() {
+  let id = localStorage.getItem('aether_device_id');
+  if (!id) {
+    id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+    localStorage.setItem('aether_device_id', id);
+  }
+  return id;
+}
+
+// Witness observer
+function setupWitnessObserver() {
+  const seenKey = id => `aether_seen_${id}`;
+  const io = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const card = entry.target;
+      const id = parseInt(card.dataset.noteId, 10);
+      if (!id || localStorage.getItem(seenKey(id))) {
+        io.unobserve(card);
+        continue;
+      }
+      localStorage.setItem(seenKey(id), '1');
+      io.unobserve(card);
+
+      fetch('/witness', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-csrf-token': getCSRF()
+        },
+        body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
+      }).then(r => r.ok ? r.json() : null).then(data => {
+        if (!data || !data.ok) return;
+        const el = card.querySelector('[data-views]');
+        if (!el) return;
+        const count = data.views;
+        if (typeof count === 'number') {
+          el.textContent = `${count}${count === 1 ? ' witness' : ' witnessed'}`;
+        }
+      }).catch(() => {});
+    }
+  }, { threshold: 0.6 });
+
+  document.querySelectorAll('.note-card').forEach(card => io.observe(card));
+}
+
+// Delete note handler
+(function() {
+  document.addEventListener('click', e => {
+    const link = e.target.closest('.note-del');
+    if (!link) return;
+    e.preventDefault();
+    const card = link.closest('.note-card');
+    const id = card && parseInt(card.dataset.noteId, 10);
+    if (!id) return;
+    if (!confirm('Delete this note? This cannot be undone.')) return;
+
+    fetch('/delete-note', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-csrf-token': getCSRF() },
+      body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
+    }).then(r => r.json().catch(()=>({}))).then(data => {
+      if (data && data.ok) {
+        card.remove();
+      } else if (data && data.error === 'forbidden') {
+        alert('Only the device that created this note can delete it.');
+      } else if (data && data.error === 'not_found') {
+        card.remove();
+      } else {
+        alert('Failed to delete. Please try again.');
+      }
+    }).catch(() => alert('Failed to delete. Please try again.'));
+  });
+})();
+
+// Flag toggle
+(function() {
+  function markInitialFlags() {
+    document.querySelectorAll('.note-card').forEach(card => {
+      const id = parseInt(card.dataset.noteId, 10);
+      if (!id) return;
+      if (localStorage.getItem(`aether_flagged_${id}`)) {
+        const btn = card.querySelector('.flag-btn');
+        if (btn) btn.classList.add('flagged');
+      }
+    });
+  }
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.flag-btn');
+    if (!btn) return;
+    const card = btn.closest('.note-card');
+    const id = card && parseInt(card.dataset.noteId, 10);
+    if (!id) return;
+
+    fetch('/flag-note', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-csrf-token': getCSRF() },
+      body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
+    }).then(r => r.json().catch(()=>({}))).then(data => {
+      if (data && data.ok) {
+        if (data.flagged) {
+          btn.classList.add('flagged');
+          if (typeof data.flags === 'number') btn.title = `Flagged (${data.flags})`;
+          localStorage.setItem(`aether_flagged_${id}`, '1');
+        } else {
+          btn.classList.remove('flagged');
+          if (typeof data.flags === 'number') btn.title = `Flag (${data.flags})`;
+          localStorage.removeItem(`aether_flagged_${id}`);
+        }
+      }
+    }).catch(() => {});
+  });
+  markInitialFlags();
+})();
+
+// Show delete link on owned notes
+(function() {
+  const myId = getDeviceId();
+  document.querySelectorAll('.note-card').forEach(card => {
+    const owner = card.getAttribute('data-created-by') || '';
+    const wrap = card.querySelector('.del-wrap');
+    if (wrap && owner && owner === myId) {
+      wrap.style.display = '';
+    }
+  });
+})();
+
+// Theme toggle button behavior
+(function() {
+  const btn = document.getElementById('theme_toggle');
+  if (!btn) return;
+  function current() {
+    return document.documentElement.getAttribute('data-theme') || 'dark';
+  }
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('aether_theme', t); } catch(e){}
+    btn.textContent = t === 'dark' ? '🌙' : '☀️';
+  }
+  setTheme(current());
+  btn.addEventListener('click', () => setTheme(current() === 'dark' ? 'light' : 'dark'));
+})();
+
+// Run witness observer
+setupWitnessObserver();
+</script>
