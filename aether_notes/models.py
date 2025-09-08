@@ -8,7 +8,7 @@ from django.utils import timezone
 class Note(models.Model):
     text = models.TextField()
     pub_date = models.DateTimeField("date published", db_index=True)
-    author = models.CharField(max_length=100, null=True, blank=True)
+    author = models.CharField(max_length=25, null=True, blank=True)
     # Denormalized count of unique device "witnesses". Updated via NoteView.
     views = models.PositiveIntegerField(default=0)
     # Denormalized count of user flags (unique per device). Updated via NoteFlag.

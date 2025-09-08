@@ -46,9 +46,13 @@ def create_note(request):
 
         author = (request.POST.get("author") or "").strip() or "anonymous"
         created_device_id = (request.POST.get("device_id") or "").strip() or None
-        # Soft cap to 2000 chars
-        if len(text) > 2000:
-            text = text[:2000]
+
+        # validate
+        if len(author) > Note._meta.get_field("author").max_length:
+            return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
+
+        if len(text) > 200:
+            return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
 
         new_note = Note(
             text=text,
