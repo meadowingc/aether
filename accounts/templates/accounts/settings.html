@@ -9,7 +9,10 @@ Aether{%endblock %} {% block content %}
     <div class="form-row">
       <label for="id_website">Website</label>
       {{ form.website }}
-      <p class="hint">Optional. If set, your linked username points here.</p>
+      <p class="hint">
+        Optional. If set, your username that appears under each "thought" will
+        be linked to this website.
+      </p>
     </div>
   </fieldset>
 
@@ -18,9 +21,7 @@ Aether{%endblock %} {% block content %}
     <div class="form-row">
       <label for="id_mastodon_instance">Instance URL</label>
       {{ form.mastodon_instance }}
-      <p class="hint">
-        Example: https://mastodon.social (no trailing slash needed)
-      </p>
+      <p class="hint">Example: https://mastodon.social</p>
     </div>
     <div class="form-row">
       <label for="id_mastodon_char_limit">Character Limit</label>
@@ -34,14 +35,19 @@ Aether{%endblock %} {% block content %}
       <label for="id_mastodon_token">Access Token</label>
       {{ form.mastodon_token }}
       <p class="hint">
-        Stored encrypted. Edit to change or clear the field to remove. Manual tokens need at least write:statuses scope. Or use the OAuth link below.
+        Edit to change or clear the field to remove. Manual tokens need at least
+        write:statuses scope. Or use the OAuth link below (only appears once
+        you've saved your instance name above).
       </p>
     </div>
     {% if profile.mastodon_instance %}
     <div class="form-row">
-      <a class="btn-small" href="{% url 'accounts:mastodon_oauth_start' %}">Sign in with Mastodon</a>
+      <a class="btn-small" href="{% url 'accounts:mastodon_oauth_start' %}"
+        >Sign in with Mastodon</a
+      >
       <p class="hint">
-        Performs OAuth against your instance (scopes: read write) and saves the token automatically.
+        Performs OAuth against your instance (scopes: read write) and saves the
+        token automatically.
       </p>
     </div>
     {% endif %}
@@ -77,19 +83,21 @@ Aether{%endblock %} {% block content %}
   <fieldset>
     <legend>Security (2FA)</legend>
     <p class="hint">
-      {% if request.user.otp_device %}
-        Two‑factor authentication is <strong>ENABLED</strong>.
-      {% else %}
-        Two‑factor authentication is <strong>NOT enabled</strong>.
-      {% endif %}
+      {% if request.user.otp_device %} Two‑factor authentication is
+      <strong>ENABLED</strong>. {% else %} Two‑factor authentication is
+      <strong>NOT enabled</strong>. {% endif %}
     </p>
     <div class="form-row">
       {% if request.user.otp_device %}
-        <a class="btn-small" href="{% url 'two_factor:profile' %}">Manage 2FA</a>
-        <a class="btn-small" href="{% url 'two_factor:backup_tokens' %}">Backup Codes</a>
-        <a class="btn-small" href="{% url 'two_factor:disable' %}">Disable</a>
+      <a class="btn-small" href="{% url 'two_factor:profile' %}">Manage 2FA</a>
+      <a class="btn-small" href="{% url 'two_factor:backup_tokens' %}"
+        >Backup Codes</a
+      >
+      <a class="btn-small" href="{% url 'two_factor:disable' %}">Disable</a>
       {% else %}
-        <a class="btn-small" href="{% url 'two_factor:setup' %}">Enable Two‑Factor</a>
+      <a class="btn-small" href="{% url 'two_factor:setup' %}"
+        >Enable Two‑Factor</a
+      >
       {% endif %}
     </div>
   </fieldset>
