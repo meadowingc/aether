@@ -1,0 +1,93 @@
+{% extends "aether_notes/base.html" %}
+{% block title %}Register • Aether{% endblock %}
+
+{% block content %}
+<h2>Register</h2>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="form-row">
+    <label for="id_username">Username</label>
+    {{ form.username }}
+    <div id="username_status" class="hint"></div>
+    {% if form.username.errors %}
+      <ul class="errors">
+        {% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+  <div class="form-row">
+    <label for="id_password1">Password</label>
+    {{ form.password1 }}
+    {% if form.password1.errors %}
+      <ul class="errors">
+        {% for e in form.password1.errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+  <div class="form-row">
+    <label for="id_password2">Repeat Password</label>
+    {{ form.password2 }}
+    {% if form.password2.errors %}
+      <ul class="errors">
+        {% for e in form.password2.errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+  {% if form.non_field_errors %}
+    <ul class="errors">
+      {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+  <button type="submit">Create Account</button>
+  <p class="hint">Usernames become reserved. Anonymous posting still works for others.</p>
+  <p class="hint">Rate limited: 5 registrations / minute per IP.</p>
+</form>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+(function() {
+  const input = document.getElementById('id_username');
+  if (!input) return;
+  const status = document.getElementById('username_status');
+
+  let last = '';
+  let timer = null;
+  function setStatus(msg, cls) {
+    status.textContent = msg || '';
+    status.className = 'hint ' + (cls || '');
+  }
+  function check() {
+    const v = (input.value || '').trim();
+    if (!v) {
+      setStatus('');
+      return;
+    }
+    if (v === last) return;
+    last = v;
+    setStatus('Checking…', '');
+    fetch(`/accounts/check-username/?u=${encodeURIComponent(v)}`, {
+      headers: { 'Accept': 'application/json' }
+    }).then(r => r.json().catch(() => ({}))).then(data => {
+      if (!data) return;
+      if (data.available) {
+        setStatus('Available ✔', 'ok');
+      } else {
+        setStatus('Taken ✖', 'bad');
+      }
+    }).catch(() => {});
+  }
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(check, 250);
+  });
+})();
+</script>
+<style>
+  .errors { color:#d66; margin:0.25rem 0 0.5rem; padding-left:1.1rem; font-size:0.9rem; }
+  .errors li { list-style:disc; }
+  #username_status.ok { color: #5c5; }
+  #username_status.bad { color: #d66; }
+</style>
+{% endblock %}

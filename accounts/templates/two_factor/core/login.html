@@ -1,0 +1,88 @@
+{% extends "two_factor/_base.html" %}
+{# Custom styled login (primary step) matching register page aesthetics. #}
+{% block two_factor_title %}Login{% endblock two_factor_title %}
+{% block two_factor_header %}Login{% endblock two_factor_header %}
+
+{% block two_factor_content %}
+  {% if wizard %}
+    {# When two_factor is in wizard mode (username/password already accepted), show wizard step. #}
+    <form action="" method="post" novalidate>
+      {% csrf_token %}
+      {{ wizard.management_form }}
+      {% if form.non_field_errors %}
+        <ul class="twofactor-messages">
+          {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      {% for field in form.visible_fields %}
+        <div class="form-row">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            <ul class="twofactor-messages">
+              {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+          {% if field.help_text %}<p class="hint">{{ field.help_text }}</p>{% endif %}
+        </div>
+      {% endfor %}
+
+      <button type="submit">
+        {% if wizard.steps.current == wizard.steps.last %}Login{% else %}Continue{% endif %}
+      </button>
+
+      {% if wizard.steps.prev %}
+        <p class="twofactor-nav"><a href="?reset=1">Restart login</a></p>
+      {% endif %}
+    </form>
+  {% else %}
+    {# Initial username/password stage #}
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <ul class="twofactor-messages">
+          {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      <div class="form-row">
+        <label for="{{ form.username.id_for_label }}">Username</label>
+        {{ form.username }}
+        {% if form.username.errors %}
+          <ul class="twofactor-messages">
+            {% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+        {% if form.password.errors %}
+          <ul class="twofactor-messages">
+            {% for e in form.password.errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      {% if form.otp_token %}
+        <div class="form-row">
+          <label for="{{ form.otp_token.id_for_label }}">Token</label>
+          {{ form.otp_token }}
+          {% if form.otp_token.errors %}
+            <ul class="twofactor-messages">
+              {% for e in form.otp_token.errors %}<li>{{ e }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <button type="submit">Login</button>
+      <p class="hint" style="margin-top:0.75rem;">
+        Need an account? <a href="{% url 'accounts:register' %}">Register</a>.
+      </p>
+    </form>
+  {% endif %}
+{% endblock two_factor_content %}

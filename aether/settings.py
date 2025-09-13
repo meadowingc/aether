@@ -50,6 +50,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "aether_notes.apps.AetherNotesConfig",
+    "accounts",  # user profiles + social connections
     "django.contrib.admin",
     "django.contrib.auth",
     # Two-factor auth (TOTP via Google Authenticator)
@@ -71,6 +72,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # Ensure authenticated users have an OTP device verified in the request
     "django_otp.middleware.OTPMiddleware",
+    "accounts.middleware.RateLimitAuthMiddleware",  # limit login attempts
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -105,6 +107,14 @@ DATABASES = {
         'OPTIONS': {
             'init_command': "PRAGMA journal_mode=WAL;",
         },
+    }
+}
+
+# Simple local cache (can be replaced with Redis/Memcached in production)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "aether-local",
     }
 }
 
@@ -159,6 +169,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Authentication URLs (use two-factor views for login/logout)
-LOGIN_URL = "two_factor:login"
-LOGIN_REDIRECT_URL = "two_factor:profile"
+# Authentication URLs (two-factor URLs included at root without namespace)
+# Using un-namespaced 'login' because we included the two_factor urlpatterns directly (no namespace arg)
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "index"
+
+# Simple auth rate limits (per IP)
+AUTH_LOGIN_RATE_LIMIT = {"limit": 5, "window": 60}       # 5 login POSTs / 60s / IP
+AUTH_CREATE_NOTE_LIMIT = {"limit": 2, "window": 60}      # already enforced via decorator
+AUTH_REGISTER_RATE_LIMIT = {"limit": 5, "window": 60}    # decorator on register view

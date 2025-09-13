@@ -9,10 +9,16 @@
     <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required></textarea>
     <div class="counter-row"><span id="note_counter" class="char-counter">0/2000</span></div>
     <div class="form-row">
+      {% if not request.user.is_authenticated %}
       <label class="sr-only" for="note_author">Author (optional)</label>
-      <input type="text" id="note_author" name="author" placeholder="Your name (optional)" maxlength="25" autocomplete="off">
+      <input type="text" id="note_author" name="author" placeholder="Your name (optional)" maxlength="25" autocomplete="off" aria-describedby="author_status">
+      <span id="author_status" class="hint" role="alert" style="margin-left:.5rem;"></span>
       <input type="hidden" id="note_device_id" name="device_id" value="">
       <label class="remember"><input type="checkbox" id="remember_author"> Remember</label>
+      {% else %}
+      <input type="hidden" id="note_device_id" name="device_id" value="">
+      <p class="hint">Posting as <strong>{{ request.user.username }}</strong></p>
+      {% endif %}
       <button type="submit">Throw</button>
     </div>
     <p class="hint">Public for ~48 hours. Please avoid personal info.</p>
@@ -24,7 +30,15 @@
         <article class="note-card" data-note-id="{{ note.id }}" data-created-by="{{ note.created_device_id|default:'' }}" style="opacity: {{ note.opacity|default:1 }};">
           <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
           <footer class="note-meta">
-            <span class="author">{{ note.author|default:"anonymous" }}</span>
+            {% if note.user %}
+              {% if note.user.profile.website %}
+                <a class="author" href="{{ note.user.profile.website }}" target="_blank" rel="noopener nofollow">{{ note.user.username }}</a>
+              {% else %}
+                <span class="author">{{ note.user.username }}</span>
+              {% endif %}
+            {% else %}
+              <span class="author">{{ note.author|default:"anonymous" }}</span>
+            {% endif %}
             <span class="dot">•</span>
             <span class="expires">fades in {{ note.expires_in }}</span>
             <span class="dot">•</span>
@@ -50,18 +64,62 @@
     (function() {
         const authorInput = document.getElementById('note_author');
         const remember = document.getElementById('remember_author');
-        const saved = localStorage.getItem('aether_author') || '';
-        if (saved) {
-            authorInput.value = saved;
-            remember.checked = true;
+        const authorStatus = document.getElementById('author_status');
+        const submitBtn = document.querySelector('.note-form button[type="submit"]');
+        let authorTimer = null;
+        let lastQuery = '';
+
+        function setAuthorStatus(msg, cls) {
+          if (!authorStatus) return;
+          authorStatus.textContent = msg || '';
+          authorStatus.className = 'hint ' + (cls || '');
         }
-        remember.addEventListener('change', () => {
-            if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
-            else localStorage.removeItem('aether_author');
-        });
-        authorInput.addEventListener('input', () => {
-            if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
-        });
+
+        function checkAuthor() {
+          if (!authorInput) return;
+            const v = (authorInput.value || '').trim();
+            if (!v) {
+              setAuthorStatus('', '');
+              if (submitBtn) submitBtn.disabled = false;
+              return;
+            }
+            if (v === lastQuery) return;
+            lastQuery = v;
+            setAuthorStatus('Checking…', '');
+            fetch(`/accounts/check-username/?u=${encodeURIComponent(v)}`, {
+              headers: { 'Accept': 'application/json' }
+            }).then(r => r.json().catch(() => ({}))).then(data => {
+              if (!data) return;
+              if (data.available) {
+                setAuthorStatus('OK', 'ok');
+                if (submitBtn) submitBtn.disabled = false;
+                authorInput.removeAttribute('aria-invalid');
+              } else {
+                setAuthorStatus('Reserved — sign in to use', 'bad');
+                if (submitBtn) submitBtn.disabled = true;
+                authorInput.setAttribute('aria-invalid', 'true');
+              }
+            }).catch(() => {});
+        }
+
+        if (authorInput && remember) {
+          const saved = localStorage.getItem('aether_author') || '';
+          if (saved) {
+              authorInput.value = saved;
+              remember.checked = true;
+          }
+          remember.addEventListener('change', () => {
+              if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+              else localStorage.removeItem('aether_author');
+          });
+          authorInput.addEventListener('input', () => {
+              if (remember.checked) localStorage.setItem('aether_author', authorInput.value || '');
+              clearTimeout(authorTimer);
+              authorTimer = setTimeout(checkAuthor, 250);
+          });
+          // initial check
+          checkAuthor();
+        }
         const deviceField = document.getElementById('note_device_id');
         if (deviceField) {
             deviceField.value = getDeviceId();

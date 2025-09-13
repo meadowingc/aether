@@ -2,6 +2,7 @@ import datetime
 
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 
 # Create your models here.
@@ -9,6 +10,8 @@ class Note(models.Model):
     text = models.TextField()
     pub_date = models.DateTimeField("date published", db_index=True)
     author = models.CharField(max_length=25, null=True, blank=True)
+    # If authored by a registered user (optional)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="notes")
     # Denormalized count of unique device "witnesses". Updated via NoteView.
     views = models.PositiveIntegerField(default=0)
     # Denormalized count of user flags (unique per device). Updated via NoteFlag.

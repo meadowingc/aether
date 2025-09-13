@@ -8,6 +8,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from django.contrib.auth import get_user_model
+from django.contrib import messages
+from accounts.utils import rate_limited
+from accounts.social import post_to_networks
+
 from .models import Note, NoteFlag, NoteView
 
 
@@ -38,14 +43,29 @@ def index(request):
     return render(request, "aether_notes/index.html", context)
 
 
+@rate_limited("create_note", limit=2, window_seconds=60)
 def create_note(request):
     if request.method == "POST":
         text = (request.POST.get("text") or "").strip()
         if not text:
             return redirect(reverse("index"))
 
-        author = (request.POST.get("author") or "").strip() or "anonymous"
         created_device_id = (request.POST.get("device_id") or "").strip() or None
+
+        if request.user.is_authenticated:
+            # Authenticated: ignore provided author, bind to user
+            author = request.user.username
+            user = request.user
+        else:
+            raw_author = (request.POST.get("author") or "").strip()
+            author = raw_author or "anonymous"
+            user = None
+            # Reject reserved usernames (registered accounts)
+            if raw_author:
+                User = get_user_model()
+                if User.objects.filter(username__iexact=raw_author).exists():
+                    messages.error(request, "Reserved username. Sign in to use it.")
+                    return redirect(reverse("index"))
 
         # validate
         if len(author) > Note._meta.get_field("author").max_length:
@@ -57,10 +77,19 @@ def create_note(request):
         new_note = Note(
             text=text,
             author=author,
+            user=user,
             pub_date=timezone.now(),
             created_device_id=created_device_id,
         )
         new_note.save()
+
+        # Cross-post (synchronous) if user opted in
+        if request.user.is_authenticated and user and hasattr(user, "profile"):
+            try:
+                post_to_networks(user.profile, new_note.text)
+            except Exception:
+                # Any exception already recorded at profile level inside helper (best-effort)
+                pass
 
     return redirect(reverse("index"))
 

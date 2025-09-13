@@ -40,12 +40,27 @@
         >
           🌙
         </button>
-        {% block header_link %}
+        {% if request.user.is_authenticated %}
+          <span class="user-pill">👤 {{ request.user.username }}</span>
+          <a class="about-link" href="{% url 'accounts:settings' %}">Settings</a>
+          <a class="about-link" href="{% url 'logout' %}">Logout</a>
+        {% else %}
           <a class="about-link" href="{% url 'about' %}">About</a>
-        {% endblock header_link %}
+          <a class="about-link" href="{% url 'two_factor:login' %}">Login</a>
+          <a class="about-link" href="{% url 'accounts:register' %}">Register</a>
+        {% endif %}
       </div>
     </header>
 
+    {% if messages %}
+    <div class="messages">
+      <ul>
+        {% for m in messages %}
+          <li class="msg {{ m.tags }}">{{ m }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     <main class="container">{% block content %}{% endblock %}</main>
     <script>
       (function () {

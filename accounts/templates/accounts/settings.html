@@ -1,0 +1,250 @@
+{% extends "aether_notes/base.html" %} {% block title %}Settings •
+Aether{%endblock %} {% block content %}
+<h2>Account Settings</h2>
+
+<form method="post">
+  {% csrf_token %}
+  <fieldset>
+    <legend>Profile</legend>
+    <div class="form-row">
+      <label for="id_website">Website</label>
+      {{ form.website }}
+      <p class="hint">Optional. If set, your linked username points here.</p>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Mastodon</legend>
+    <div class="form-row">
+      <label for="id_mastodon_instance">Instance URL</label>
+      {{ form.mastodon_instance }}
+      <p class="hint">
+        Example: https://mastodon.social (no trailing slash needed)
+      </p>
+    </div>
+    <div class="form-row">
+      <label for="id_mastodon_char_limit">Character Limit</label>
+      {{ form.mastodon_char_limit }}
+      <p class="hint">
+        Max characters to send (default 2000). Lower this if your instance
+        enforces a smaller limit.
+      </p>
+    </div>
+    <div class="form-row">
+      <label for="id_mastodon_token">Access Token</label>
+      {{ form.mastodon_token }}
+      <p class="hint">
+        Stored encrypted. Edit to change or clear the field to remove. Manual tokens need at least write:statuses scope. Or use the OAuth link below.
+      </p>
+    </div>
+    {% if profile.mastodon_instance %}
+    <div class="form-row">
+      <a class="btn-small" href="{% url 'accounts:mastodon_oauth_start' %}">Sign in with Mastodon</a>
+      <p class="hint">
+        Performs OAuth against your instance (scopes: read write) and saves the token automatically.
+      </p>
+    </div>
+    {% endif %}
+    <div class="form-row">
+      <label>
+        {{ form.crosspost_mastodon }} Cross‑post new notes to Mastodon
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Bluesky</legend>
+    <div class="form-row">
+      <label for="id_bluesky_handle">Handle</label>
+      {{ form.bluesky_handle }}
+      <p class="hint">Your full handle (e.g. you.bsky.social)</p>
+    </div>
+    <div class="form-row">
+      <label for="id_bluesky_app_password">App Password</label>
+      {{ form.bluesky_app_password }}
+      <p class="hint">
+        Leave blank to keep existing. Use an App Password (Settings → Privacy
+        and Security → App Passwords).
+      </p>
+    </div>
+    <div class="form-row">
+      <label>
+        {{ form.crosspost_bluesky }} Cross‑post new notes to Bluesky
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Security (2FA)</legend>
+    <p class="hint">
+      {% if request.user.otp_device %}
+        Two‑factor authentication is <strong>ENABLED</strong>.
+      {% else %}
+        Two‑factor authentication is <strong>NOT enabled</strong>.
+      {% endif %}
+    </p>
+    <div class="form-row">
+      {% if request.user.otp_device %}
+        <a class="btn-small" href="{% url 'two_factor:profile' %}">Manage 2FA</a>
+        <a class="btn-small" href="{% url 'two_factor:backup_tokens' %}">Backup Codes</a>
+        <a class="btn-small" href="{% url 'two_factor:disable' %}">Disable</a>
+      {% else %}
+        <a class="btn-small" href="{% url 'two_factor:setup' %}">Enable Two‑Factor</a>
+      {% endif %}
+    </div>
+  </fieldset>
+
+  {% if profile.last_crosspost_error %}
+  <div class="warning">
+    <strong>Last cross-post error:</strong><br />
+    {{ profile.last_crosspost_error }} ({{
+    profile.last_crosspost_error_at|date:"Y-m-d H:i:s" }})<br />
+    <button name="clear_error" value="1" type="submit" class="btn-small">
+      Clear Error
+    </button>
+  </div>
+  {% endif %}
+
+  <div class="actions">
+    <button type="submit">Save Settings</button>
+  </div>
+</form>
+
+<hr />
+<h3>Connection Tests</h3>
+<p class="hint">Use these to verify credentials without posting publicly.</p>
+<div class="test-row">
+  <button
+    id="test_mastodon_btn"
+    {%
+    if
+    not
+    profile.mastodon_instance
+    or
+    not
+    profile.mastodon_token
+    %}disabled{%
+    endif
+    %}
+  >
+    Test Mastodon
+  </button>
+  <span id="test_mastodon_status" class="hint"></span>
+</div>
+<div class="test-row">
+  <button
+    id="test_bluesky_btn"
+    {%
+    if
+    not
+    profile.bluesky_handle
+    or
+    not
+    profile.bluesky_app_password
+    %}disabled{%
+    endif
+    %}
+  >
+    Test Bluesky
+  </button>
+  <span id="test_bluesky_status" class="hint"></span>
+</div>
+
+{% endblock %} {% block scripts %} {{ block.super }}
+<script>
+  (function () {
+    function test(url, btnId, statusId) {
+      const btn = document.getElementById(btnId);
+      const status = document.getElementById(statusId);
+      if (!btn || !status) return;
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (btn.disabled) return;
+        status.textContent = "Testing…";
+        fetch(url, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCookie("csrftoken"),
+            Accept: "application/json",
+          },
+        })
+          .then((r) => r.json().catch(() => ({})))
+          .then((data) => {
+            if (!data) return;
+            if (data.ok) {
+              status.textContent = "OK ✔";
+              status.className = "hint ok";
+            } else {
+              status.textContent = "Failed ✖ (" + (data.error || "error") + ")";
+              status.className = "hint bad";
+            }
+          })
+          .catch(() => {
+            status.textContent = "Failed ✖";
+            status.className = "hint bad";
+          });
+      });
+    }
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+    }
+    test(
+      "{% url 'accounts:test_mastodon' %}",
+      "test_mastodon_btn",
+      "test_mastodon_status"
+    );
+    test(
+      "{% url 'accounts:test_bluesky' %}",
+      "test_bluesky_btn",
+      "test_bluesky_status"
+    );
+  })();
+</script>
+<style>
+  fieldset {
+    border: 1px solid var(--border-color, #444);
+    padding: 0.75rem 1rem 1rem;
+    margin: 1rem 0;
+  }
+  legend {
+    padding: 0 0.4rem;
+    font-weight: 600;
+  }
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.75rem;
+  }
+  .form-row input[type="text"],
+  .form-row input[type="url"],
+  .form-row input[type="password"] {
+    max-width: 22rem;
+  }
+  .actions {
+    margin-top: 1rem;
+  }
+  .warning {
+    background: rgba(255, 120, 120, 0.08);
+    border: 1px solid #d55;
+    padding: 0.6rem 0.8rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  .btn-small {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
+  }
+  .test-row {
+    margin: 0.5rem 0;
+  }
+  .hint.ok {
+    color: #5c5;
+  }
+  .hint.bad {
+    color: #d66;
+  }
+</style>
+{% endblock %}
