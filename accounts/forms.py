@@ -47,6 +47,8 @@ class ProfileForm(forms.ModelForm):
         model = Profile
         fields = [
             "website",
+            "show_archive",
+            "bio",
             "mastodon_instance",
             "mastodon_char_limit",
             "mastodon_token",

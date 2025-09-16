@@ -25,6 +25,9 @@ class Profile(models.Model):
     # Preferences
     crosspost_mastodon = models.BooleanField(default=False)
     crosspost_bluesky = models.BooleanField(default=False)
+    # Archive / profile page (optional). If enabled, show user's notes beyond ephemeral window.
+    show_archive = models.BooleanField(default=False, help_text="If true, a public archive/profile page is enabled")
+    bio = models.TextField(blank=True, help_text="Optional short bio displayed on your archive page")
 
     # Diagnostics (store only last error, optional)
     last_crosspost_error = models.TextField(blank=True)

@@ -41,7 +41,11 @@
           🌙
         </button>
         {% if request.user.is_authenticated %}
-          <span class="user-pill">👤 {{ request.user.username }}</span>
+          {% if request.user.profile.show_archive %}
+            <a class="user-pill" href="{% url 'accounts:user_archive' request.user.username %}">👤 {{ request.user.username }}</a>
+          {% else %}
+            <span class="user-pill">👤 {{ request.user.username }}</span>
+          {% endif %}
           <a class="about-link" href="{% url 'accounts:settings' %}">Settings</a>
           <a class="about-link" href="{% url 'logout' %}">Logout</a>
         {% else %}

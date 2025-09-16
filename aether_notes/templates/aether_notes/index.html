@@ -1,4 +1,5 @@
 {% extends "aether_notes/base.html" %}
+{% load static %}
 
 {% block title %}Aether{% endblock %}
 
@@ -53,7 +54,9 @@
           <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
           <footer class="note-meta">
             {% if note.user %}
-              {% if note.user.profile.website %}
+              {% if note.user.profile.show_archive %}
+                <a class="author" href="{% url 'accounts:user_archive' note.user.username %}">{{ note.user.username }}</a>
+              {% elif note.user.profile.website %}
                 <a class="author" href="{{ note.user.profile.website }}" target="_blank" rel="noopener nofollow">{{ note.user.username }}</a>
               {% else %}
                 <span class="author">{{ note.user.username }}</span>
@@ -357,11 +360,5 @@
       markInitialFlags();
     })();
   </script>
-  <style>
-    .network-counters { display:flex; gap:.75rem; flex-wrap:wrap; margin-left:1rem; }
-    .network-counters .net-toggle { font-size:.75rem; display:inline-flex; align-items:center; gap:.25rem; background:var(--panel-bg, rgba(255,255,255,0.04)); padding:.25rem .4rem; border:1px solid var(--border-color,#444); border-radius:4px; }
-    .char-counter.small { font-size:.65rem; opacity:.8; }
-    .char-counter.over { color:#d55; font-weight:600; }
-    .char-counter.near:not(.over) { color:#e6a700; }
-  </style>
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
 {% endblock scripts %}

@@ -14,4 +14,6 @@ urlpatterns = [
     # Mastodon OAuth
     path("mastodon/start/", views.mastodon_oauth_start, name="mastodon_oauth_start"),
     path("mastodon/callback/", views.mastodon_oauth_callback, name="mastodon_oauth_callback"),
+    # Public archive/profile
+    path("u/<str:username>/", views.user_archive, name="user_archive"),
 ]

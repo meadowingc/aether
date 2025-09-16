@@ -1,0 +1,35 @@
+{% extends "aether_notes/base.html" %}
+{% load static %}
+{% block title %}{{ archive_user.username }} • Archive{% endblock %}
+{% block content %}
+  <section class="profile-header">
+    <h2>{{ archive_user.username }}</h2>
+    {% if profile.website %}
+      <p class="website"><a href="{{ profile.website }}" target="_blank" rel="noopener nofollow">{{ profile.website }}</a></p>
+    {% endif %}
+    {% if rendered_bio %}
+      <div class="bio">{{ rendered_bio|safe }}</div>
+    {% else %}
+      <p class="hint">No bio provided.</p>
+    {% endif %}
+    <p class="hint">Showing {{ notes|length }} note{{ notes|length|pluralize }} (newest first). Older notes may eventually be purged per platform policy.</p>
+  </section>
+  {% if notes %}
+    <section class="archive-list">
+      {% for note in notes %}
+        <article class="note-archive">
+          <div class="text">{{ note.text|urlize|linebreaksbr }}</div>
+          <footer class="meta">
+            <time datetime="{{ note.pub_date|date:'c' }}">{{ note.pub_date|date:'Y-m-d H:i' }}</time>
+            <span class="dot">•</span>
+            <span>{{ note.views }} view{{ note.views|pluralize }}</span>
+            {% if note.flags %}<span class="dot">•</span><span>{{ note.flags }} flag{{ note.flags|pluralize }}</span>{% endif %}
+          </footer>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="empty">No notes yet.</p>
+  {% endif %}
+{% endblock %}
+{% block scripts %}{{ block.super }}<link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">{% endblock %}

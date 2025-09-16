@@ -14,6 +14,16 @@ Aether{%endblock %} {% block content %}
         be linked to this website.
       </p>
     </div>
+    <div class="form-row">
+      <label for="id_show_archive">Public Archive Page</label>
+      {{ form.show_archive }} Enable a public profile/archive page listing your notes
+      <p class="hint">If enabled, a page like /u/{{ request.user.username }}/ will show your authored notes (beyond the 48h feed window).</p>
+    </div>
+    <div class="form-row">
+      <label for="id_bio">Bio</label>
+      {{ form.bio }}
+      <p class="hint">Optional short bio or disclaimer. <strong>Markdown supported</strong> (basic formatting, links, lists, code). No raw HTML.</p>
+    </div>
   </fieldset>
 
   <fieldset>

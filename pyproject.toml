@@ -13,6 +13,7 @@ dependencies = [
     "Mastodon.py>=1.8.1",
     "atproto>=0.0.55",
     "django-cryptography>=1.1",
+    "markdown-it-py>=3.0.0",
 ]
 
 [dependency-groups]

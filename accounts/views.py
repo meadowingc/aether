@@ -17,6 +17,8 @@ from django.urls import reverse
 from .forms import RegistrationForm, ProfileForm
 from .models import Profile
 from .utils import rate_limited, client_ip
+from aether_notes.models import Note
+from django.utils.safestring import mark_safe
 
 User = get_user_model()
 
@@ -236,3 +238,45 @@ def logout_view(request: HttpRequest) -> HttpResponse:
     """
     logout(request)
     return redirect("index")
+
+def user_archive(request: HttpRequest, username: str) -> HttpResponse:
+    """Public archive/profile page for a user if they opted in.
+
+    Shows all their notes (no 48h cutoff) newest first.
+    404 if user not found or archive disabled.
+    """
+    try:
+        user = User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        return render(request, "404.html", status=404)  # fallback; custom template optional
+    if not hasattr(user, "profile") or not user.profile.show_archive:  # type: ignore[attr-defined]
+        return render(request, "404.html", status=404)
+
+    # Fetch latest 200 notes authored by this user (persist even if beyond feed window)
+    notes = Note.objects.filter(user=user).order_by("-pub_date")[:200]
+    profile: Profile = user.profile  # type: ignore[attr-defined]
+
+    # Markdown rendering (safe subset) for bio
+    rendered_bio = ""
+    if profile.bio:
+        try:
+            from markdown_it import MarkdownIt  # type: ignore
+            from mdurl import urlencode  # type: ignore  # noqa: F401 (import used by markdown-it for links)
+            md = (
+                MarkdownIt("commonmark", {
+                    "html": False,
+                    "linkify": True,
+                    "typographer": True,
+                })
+                .enable(["emphasis", "link", "list", "paragraph", "blockquote", "code", "fence", "strong", "table", "strikethrough"])
+            )
+            # Basic sanitation: markdown-it-py with html disabled prevents raw HTML; still escape afterwards.
+            raw_html = md.render(profile.bio or "")
+            # Allow only a small set of tags via a whitelist removal (simple approach)
+            # For now rely on html disabled; treat output as safe (it only contains generated tags)
+            rendered_bio = mark_safe(raw_html)
+        except Exception:
+            rendered_bio = profile.bio  # fallback plain
+
+    ctx = {"archive_user": user, "profile": profile, "notes": notes, "rendered_bio": rendered_bio}
+    return render(request, "accounts/archive.html", ctx)
