@@ -22,6 +22,7 @@ from django.utils.safestring import mark_safe
 
 User = get_user_model()
 
+
 @rate_limited("register", limit=5, window_seconds=60)
 def register(request: HttpRequest) -> HttpResponse:
     if request.user.is_authenticated:
@@ -35,6 +36,7 @@ def register(request: HttpRequest) -> HttpResponse:
     else:
         form = RegistrationForm()
     return render(request, "accounts/register.html", {"form": form})
+
 
 @login_required
 def settings_view(request: HttpRequest) -> HttpResponse:
@@ -56,6 +58,7 @@ def settings_view(request: HttpRequest) -> HttpResponse:
     }
     return render(request, "accounts/settings.html", ctx)
 
+
 def check_username(request: HttpRequest) -> HttpResponse:
     username = (request.GET.get("u") or "").strip()
     available = False
@@ -63,12 +66,14 @@ def check_username(request: HttpRequest) -> HttpResponse:
         available = not User.objects.filter(username__iexact=username).exists()
     return JsonResponse({"available": available})
 
+
 @login_required
 def clear_crosspost_error(request: HttpRequest) -> HttpResponse:
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
     request.user.profile.clear_crosspost_error()  # type: ignore[attr-defined]
     return JsonResponse({"ok": True})
+
 
 @login_required
 def test_mastodon(request: HttpRequest) -> HttpResponse:
@@ -80,8 +85,13 @@ def test_mastodon(request: HttpRequest) -> HttpResponse:
     if not inst or not token:
         return JsonResponse({"ok": False, "error": "missing_credentials"})
     import httpx
+
     try:
-        r = httpx.get(f"{inst}/api/v1/accounts/verify_credentials", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        r = httpx.get(
+            f"{inst}/api/v1/accounts/verify_credentials",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
         if r.status_code == 200:
             profile.clear_crosspost_error()
             return JsonResponse({"ok": True})
@@ -90,6 +100,7 @@ def test_mastodon(request: HttpRequest) -> HttpResponse:
     except Exception as e:  # noqa: BLE001
         profile.record_crosspost_error(f"Mastodon exception: {e.__class__.__name__}")
         return JsonResponse({"ok": False, "error": "exception"})
+
 
 @login_required
 def test_bluesky(request: HttpRequest) -> HttpResponse:
@@ -102,6 +113,7 @@ def test_bluesky(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"ok": False, "error": "missing_credentials"})
     try:
         from atproto import Client
+
         client = Client()
         client.login(handle, app_pw)
         profile.clear_crosspost_error()
@@ -110,6 +122,7 @@ def test_bluesky(request: HttpRequest) -> HttpResponse:
         profile.record_crosspost_error(f"Bluesky exception: {e.__class__.__name__}")
         return JsonResponse({"ok": False, "error": "exception"})
 
+
 # Helper to detect JSON/intended AJAX
 def wants_json(request: HttpRequest) -> bool:
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
@@ -117,12 +130,14 @@ def wants_json(request: HttpRequest) -> bool:
     accept = request.headers.get("accept", "")
     return "application/json" in accept
 
+
 def rate_status(request: HttpRequest) -> HttpResponse:
     # Optional endpoint to introspect IP for debugging (not linked)
     if request.method != "GET":
         return HttpResponseBadRequest("GET only")
     ip = client_ip(request)
     return JsonResponse({"ip": ip})
+
 
 @login_required
 def mastodon_oauth_start(request: HttpRequest) -> HttpResponse:
@@ -139,7 +154,9 @@ def mastodon_oauth_start(request: HttpRequest) -> HttpResponse:
     from urllib.parse import urlencode
 
     # If already have a token, allow re-auth to refresh scope.
-    redirect_uri = request.build_absolute_uri(reverse("accounts:mastodon_oauth_callback"))
+    redirect_uri = request.build_absolute_uri(
+        reverse("accounts:mastodon_oauth_callback")
+    )
     session_key = "mastodon_oauth"
     data = request.session.get(session_key)
 
@@ -157,7 +174,9 @@ def mastodon_oauth_start(request: HttpRequest) -> HttpResponse:
                 timeout=10,
             )
             if r.status_code not in (200, 202):
-                return HttpResponse(f"App registration failed ({r.status_code})", status=500)
+                return HttpResponse(
+                    f"App registration failed ({r.status_code})", status=500
+                )
             payload = r.json()
             client_id = payload.get("client_id")
             client_secret = payload.get("client_secret")
@@ -172,20 +191,20 @@ def mastodon_oauth_start(request: HttpRequest) -> HttpResponse:
             request.session.modified = True
             data = request.session[session_key]
         except Exception as e:  # noqa: BLE001
-            return HttpResponse(f"Registration exception: {e.__class__.__name__}", status=500)
+            return HttpResponse(
+                f"Registration exception: {e.__class__.__name__}", status=500
+            )
 
-    auth_url = (
-        f"{instance}/oauth/authorize?"
-        + urlencode(
-            {
-                "client_id": data["client_id"],
-                "redirect_uri": data["redirect_uri"],
-                "response_type": "code",
-                "scope": "read write",
-            }
-        )
+    auth_url = f"{instance}/oauth/authorize?" + urlencode(
+        {
+            "client_id": data["client_id"],
+            "redirect_uri": data["redirect_uri"],
+            "response_type": "code",
+            "scope": "read write",
+        }
     )
     return redirect(auth_url)
+
 
 @login_required
 def mastodon_oauth_callback(request: HttpRequest) -> HttpResponse:
@@ -232,12 +251,14 @@ def mastodon_oauth_callback(request: HttpRequest) -> HttpResponse:
         pass
     return redirect(reverse("accounts:settings"))
 
+
 def logout_view(request: HttpRequest) -> HttpResponse:
     """
     Simple logout accepting GET (for header link) or POST, then redirect home.
     """
     logout(request)
     return redirect("index")
+
 
 def user_archive(request: HttpRequest, username: str) -> HttpResponse:
     """Public archive/profile page for a user if they opted in.
@@ -248,7 +269,9 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
     try:
         user = User.objects.get(username__iexact=username)
     except User.DoesNotExist:
-        return render(request, "404.html", status=404)  # fallback; custom template optional
+        return render(
+            request, "404.html", status=404
+        )  # fallback; custom template optional
     if not hasattr(user, "profile") or not user.profile.show_archive:  # type: ignore[attr-defined]
         return render(request, "404.html", status=404)
 
@@ -262,11 +285,12 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
         bio_source = profile.bio
         try:
             from markdown_it import MarkdownIt  # type: ignore
+
             md = MarkdownIt(
                 "commonmark",
                 {
-                    "html": False,       # disallow raw HTML
-                    "linkify": True,     # auto link plain URLs
+                    "html": False,  # disallow raw HTML
+                    "linkify": True,  # auto link plain URLs
                     "typographer": True,
                 },
             )
@@ -276,9 +300,12 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
         except Exception:
             # Fallback: extremely small inline markdown ( *em* _em_ `code` ) without raw HTML
             import html, re
+
             esc = html.escape(bio_source)
             # code spans first
-            esc = re.sub(r"`([^`]{1,200})`", lambda m: f"<code>{m.group(1)}</code>", esc)
+            esc = re.sub(
+                r"`([^`]{1,200})`", lambda m: f"<code>{m.group(1)}</code>", esc
+            )
             # bold (**) then emphasis (*) and _ _
             esc = re.sub(r"\*\*([^*]{1,400})\*\*", r"<strong>\1</strong>", esc)
             esc = re.sub(r"\*([^*]{1,400})\*", r"<em>\1</em>", esc)
@@ -286,7 +313,14 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
             esc = re.sub(r"_([^_]{1,400})_", r"<em>\1</em>", esc)
             # simple line breaks
             esc = esc.replace("\r\n", "\n").replace("\r", "\n")
-            rendered_bio = mark_safe("<p>" + esc.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>")
+            rendered_bio = mark_safe(
+                "<p>" + esc.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+            )
 
-    ctx = {"archive_user": user, "profile": profile, "notes": notes, "rendered_bio": rendered_bio}
+    ctx = {
+        "archive_user": user,
+        "profile": profile,
+        "notes": notes,
+        "rendered_bio": rendered_bio,
+    }
     return render(request, "accounts/archive.html", ctx)
