@@ -177,6 +177,23 @@
             textarea.addEventListener('input', update);
             update();
         }
+
+        // Persist per-note crosspost toggles
+        function restoreToggle(id, storageKey) {
+          const el = document.getElementById(id);
+            if (!el) return;
+            try {
+              const v = localStorage.getItem(storageKey);
+              if (v === '0') el.checked = false;
+              else if (v === '1') el.checked = true; // explicit
+              // else leave default (checked by template)
+              el.addEventListener('change', () => {
+                try { localStorage.setItem(storageKey, el.checked ? '1' : '0'); } catch(e) {}
+              });
+            } catch(e) {}
+        }
+        restoreToggle('xp_mastodon', 'aether_xp_mastodon');
+        restoreToggle('xp_bluesky', 'aether_xp_bluesky');
     })();
 
     // Lightweight device id for unique witness tracking
