@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from accounts.utils import rate_limited
-from accounts.social import post_to_networks
+from accounts.social import post_mastodon, post_bluesky
 
 from .models import Note, NoteFlag, NoteView
 
@@ -83,12 +83,27 @@ def create_note(request):
         )
         new_note.save()
 
-        # Cross-post (synchronous) if user opted in
+        # Cross-post (synchronous) if user opted in globally and selected per-note
         if request.user.is_authenticated and user and hasattr(user, "profile"):
+            prof = user.profile
+            # Presence of checkbox name indicates user wants this note posted there (unchecked => absent)
+            want_masto = bool(request.POST.get("xp_mastodon"))
+            want_bsky = bool(request.POST.get("xp_bluesky"))
+            # Only attempt network if globally enabled & user selected it.
             try:
-                post_to_networks(user.profile, new_note.text)
-            except Exception:
-                # Any exception already recorded at profile level inside helper (best-effort)
+                if want_masto and prof.crosspost_mastodon:
+                    try:
+                        post_mastodon(prof, new_note.text)
+                    except Exception:
+                        pass
+                if want_bsky and prof.crosspost_bluesky:
+                    try:
+                        post_bluesky(prof, new_note.text)
+                    except Exception:
+                        pass
+                # If neither produced/retained an error and there was a previous error, we could clear
+                # (left as-is; post_* already record failures and only on success we could choose to clear)
+            except Exception:  # pragma: no cover - defensive wrapper
                 pass
 
     return redirect(reverse("index"))

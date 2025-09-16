@@ -353,6 +353,10 @@ body::after {
   opacity: 0.5;
 }
 
+.note-meta a.author {
+  color: var(--accent);
+}
+
 .note-del {
   color: #b84a4a;
   text-decoration: none;

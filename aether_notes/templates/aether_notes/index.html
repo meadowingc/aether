@@ -7,7 +7,29 @@
     {% csrf_token %}
     <label class="sr-only" for="note_text">New Note</label>
     <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required></textarea>
-    <div class="counter-row"><span id="note_counter" class="char-counter">0/2000</span></div>
+    <div class="counter-row">
+      <span id="note_counter" class="char-counter">0/2000</span>
+      {% if request.user.is_authenticated and request.user.profile %}
+        {% with p=request.user.profile %}
+          <div class="network-counters">
+            {% if p.crosspost_mastodon and p.mastodon_instance and p.mastodon_token %}
+              <label class="net-toggle">
+                <input type="checkbox" name="xp_mastodon" id="xp_mastodon" checked>
+                <span>Mastodon</span>
+                <span id="mastodon_counter" class="char-counter small" data-limit="{{ p.mastodon_char_limit|default:2000 }}">0/{{ p.mastodon_char_limit|default:2000 }}</span>
+              </label>
+            {% endif %}
+            {% if p.crosspost_bluesky and p.bluesky_handle and p.bluesky_app_password %}
+              <label class="net-toggle">
+                <input type="checkbox" name="xp_bluesky" id="xp_bluesky" checked>
+                <span>Bluesky</span>
+                <span id="bluesky_counter" class="char-counter small" data-limit="300">0/300</span>
+              </label>
+            {% endif %}
+          </div>
+        {% endwith %}
+      {% endif %}
+    </div>
     <div class="form-row">
       {% if not request.user.is_authenticated %}
       <label class="sr-only" for="note_author">Author (optional)</label>
@@ -142,6 +164,15 @@
                 counter.textContent = `${len}/${max}`;
                 const ratio = len / max;
                 counter.classList.toggle('near', ratio >= 0.9);
+
+                // Per-network counters
+                document.querySelectorAll('.network-counters .char-counter[data-limit]').forEach(el => {
+                  const lim = parseInt(el.getAttribute('data-limit') || '0', 10);
+                  if (!lim) return;
+                  el.textContent = `${len}/${lim}`;
+                  el.classList.toggle('near', len / lim >= 0.9 && len <= lim);
+                  el.classList.toggle('over', len > lim);
+                });
             };
             textarea.addEventListener('input', update);
             update();
@@ -309,4 +340,11 @@
       markInitialFlags();
     })();
   </script>
+  <style>
+    .network-counters { display:flex; gap:.75rem; flex-wrap:wrap; margin-left:1rem; }
+    .network-counters .net-toggle { font-size:.75rem; display:inline-flex; align-items:center; gap:.25rem; background:var(--panel-bg, rgba(255,255,255,0.04)); padding:.25rem .4rem; border:1px solid var(--border-color,#444); border-radius:4px; }
+    .char-counter.small { font-size:.65rem; opacity:.8; }
+    .char-counter.over { color:#d55; font-weight:600; }
+    .char-counter.near:not(.over) { color:#e6a700; }
+  </style>
 {% endblock scripts %}
