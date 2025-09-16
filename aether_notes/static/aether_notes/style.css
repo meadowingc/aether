@@ -167,6 +167,10 @@ body::after {
   background: var(--border);
   transform: translateY(-1px);
 }
+.user-pill {
+  color: inherit;
+  text-decoration: none;
+}
 .about-link {
   color: inherit;
   text-decoration: none;

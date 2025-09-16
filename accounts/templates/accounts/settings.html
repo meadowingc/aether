@@ -1,174 +1,138 @@
-{% extends "aether_notes/base.html" %} {% block title %}Settings •
-Aether{%endblock %} {% block content %}
-<h2>Account Settings</h2>
+{% extends "aether_notes/base.html" %}
+{% load static %}
+{% block title %}Settings • Aether{% endblock %}
+{% block content %}
+<h2 class="settings-heading">Account Settings</h2>
 
-<form method="post">
+<form method="post" class="settings-form" novalidate>
   {% csrf_token %}
-  <fieldset>
-    <legend>Profile</legend>
-    <div class="form-row">
-      <label for="id_website">Website</label>
-      {{ form.website }}
-      <p class="hint">
-        Optional. If set, your username that appears under each "thought" will
-        be linked to this website.
-      </p>
-    </div>
-    <div class="form-row">
-      <label for="id_show_archive">Public Archive Page</label>
-      {{ form.show_archive }} Enable a public profile/archive page listing your notes
-      <p class="hint">If enabled, a page like /u/{{ request.user.username }}/ will show your authored notes (beyond the 48h feed window).</p>
-    </div>
-    <div class="form-row">
-      <label for="id_bio">Bio</label>
-      {{ form.bio }}
-      <p class="hint">Optional short bio or disclaimer. <strong>Markdown supported</strong> (basic formatting, links, lists, code). No raw HTML.</p>
-    </div>
-  </fieldset>
 
-  <fieldset>
-    <legend>Mastodon</legend>
-    <div class="form-row">
-      <label for="id_mastodon_instance">Instance URL</label>
-      {{ form.mastodon_instance }}
-      <p class="hint">Example: https://mastodon.social</p>
+  <section class="settings-grid">
+    <!-- Profile Card -->
+    <div class="settings-card">
+      <h3 class="card-title">Profile</h3>
+      <div class="field">
+        <label for="id_website">Website</label>
+        {{ form.website }}
+        <p class="hint">Optional; used to link your username under your notes.</p>
+      </div>
+      <div class="field inline-toggle">
+        <label for="id_show_archive">Public Archive Page</label>
+        <div class="toggle-row">{{ form.show_archive }} <span>Enable /u/{{ request.user.username }}/ page (all your notes, beyond 48h feed)</span></div>
+        {% if form.show_archive.help_text %}<p class="hint">{{ form.show_archive.help_text }}</p>{% endif %}
+        {% if profile.show_archive %}
+          <p class="hint small">Archive URL: <a href="{% url 'accounts:user_archive' request.user.username %}">/u/{{ request.user.username }}/</a></p>
+        {% endif %}
+      </div>
+      <div class="field">
+        <label for="id_bio">Bio <span class="meta">Markdown OK</span></label>
+        {{ form.bio }}
+        <p class="hint">Short optional bio. Basic Markdown (links, lists, code) — no raw HTML.</p>
+      </div>
     </div>
-    <div class="form-row">
-      <label for="id_mastodon_char_limit">Character Limit</label>
-      {{ form.mastodon_char_limit }}
-      <p class="hint">
-        Max characters to send (default 2000). Lower this if your instance
-        enforces a smaller limit.
-      </p>
+
+    <!-- Mastodon Card -->
+    <div class="settings-card">
+      <h3 class="card-title mastodon">Mastodon</h3>
+      <div class="field">
+        <label for="id_mastodon_instance">Instance URL</label>
+        {{ form.mastodon_instance }}
+        <p class="hint">Example: https://mastodon.social</p>
+      </div>
+      <div class="field two-col">
+        <div>
+          <label for="id_mastodon_char_limit">Char Limit</label>
+          {{ form.mastodon_char_limit }}
+        </div>
+        <p class="hint">Default 2000; lower if your instance enforces less.</p>
+      </div>
+      <div class="field">
+        <label for="id_mastodon_token">Access Token</label>
+        {{ form.mastodon_token }}
+        <p class="hint">Write token (write:statuses). Blank to clear if you want to remove.</p>
+      </div>
+      <div class="field oauth-row">
+        {% if profile.mastodon_instance %}
+          <a class="btn-chip" href="{% url 'accounts:mastodon_oauth_start' %}">Mastodon OAuth Sign‑In</a>
+          <p class="hint">Fetch & store a token (scopes: read write).</p>
+        {% else %}
+          <button type="button" class="btn-chip" disabled title="Set instance URL above & save first">Mastodon OAuth Sign‑In</button>
+          <p class="hint bad">Set & save your instance URL to enable OAuth.</p>
+        {% endif %}
+      </div>
+      <div class="field">
+        {% if profile.mastodon_token %}
+          <p class="hint ok">Status: Connected (token stored)</p>
+        {% else %}
+          <p class="hint">Status: Not connected</p>
+        {% endif %}
+      </div>
+      <div class="field inline-toggle">
+        <div class="toggle-row">{{ form.crosspost_mastodon }} <span>Enable cross-posting notes to Mastodon</span></div>
+      </div>
+      <div class="field test-buttons">
+        <button type="button" id="test_mastodon_btn" {% if not profile.mastodon_instance or not profile.mastodon_token %}disabled{% endif %}>Test Connection</button>
+        <span id="test_mastodon_status" class="hint"></span>
+      </div>
     </div>
-    <div class="form-row">
-      <label for="id_mastodon_token">Access Token</label>
-      {{ form.mastodon_token }}
-      <p class="hint">
-        Edit to change or clear the field to remove. Manual tokens need at least
-        write:statuses scope. Or use the OAuth link below (only appears once
-        you've saved your instance name above).
-      </p>
+
+    <!-- Bluesky Card -->
+    <div class="settings-card">
+      <h3 class="card-title bluesky">Bluesky</h3>
+      <div class="field">
+        <label for="id_bluesky_handle">Handle</label>
+        {{ form.bluesky_handle }}
+        <p class="hint">Full handle (e.g. you.bsky.social)</p>
+      </div>
+      <div class="field">
+        <label for="id_bluesky_app_password">App Password</label>
+        {{ form.bluesky_app_password }}
+        <p class="hint">Use an app password. Blank keeps existing; blank & save clears.</p>
+      </div>
+      <div class="field inline-toggle">
+        <div class="toggle-row">{{ form.crosspost_bluesky }} <span>Enable cross-posting notes to Bluesky</span></div>
+      </div>
+      <div class="field test-buttons">
+        <button type="button" id="test_bluesky_btn" {% if not profile.bluesky_handle or not profile.bluesky_app_password %}disabled{% endif %}>Test Connection</button>
+        <span id="test_bluesky_status" class="hint"></span>
+      </div>
     </div>
-    {% if profile.mastodon_instance %}
-    <div class="form-row">
-      <a class="btn-small" href="{% url 'accounts:mastodon_oauth_start' %}"
-        >Sign in with Mastodon</a
-      >
-      <p class="hint">
-        Performs OAuth against your instance (scopes: read write) and saves the
-        token automatically.
+
+    <!-- Security Card -->
+    <div class="settings-card">
+      <h3 class="card-title security">Security & 2FA</h3>
+      <p class="hint status-line">
+        {% if request.user.otp_device %}<strong>Two‑factor enabled.</strong>{% else %}<strong>Two‑factor not enabled.</strong>{% endif %}
       </p>
+      <div class="button-row">
+        {% if request.user.otp_device %}
+          <a class="btn-chip" href="{% url 'two_factor:profile' %}">Manage</a>
+          <a class="btn-chip" href="{% url 'two_factor:backup_tokens' %}">Backup Codes</a>
+          <a class="btn-chip" href="{% url 'two_factor:disable' %}">Disable</a>
+        {% else %}
+          <a class="btn-chip" href="{% url 'two_factor:setup' %}">Enable 2FA</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Diagnostics Card -->
+    {% if profile.last_crosspost_error %}
+    <div class="settings-card warning-card">
+      <h3 class="card-title warn">Cross‑post Error</h3>
+      <p class="error-text">{{ profile.last_crosspost_error }}<br><small>{{ profile.last_crosspost_error_at|date:"Y-m-d H:i:s" }}</small></p>
+      <button name="clear_error" value="1" type="submit" class="btn-chip">Clear Error</button>
     </div>
     {% endif %}
-    <div class="form-row">
-      <label>
-        {{ form.crosspost_mastodon }} Enable cross‑posting notes to Mastodon
-      </label>
-    </div>
-  </fieldset>
+  </section>
 
-  <fieldset>
-    <legend>Bluesky</legend>
-    <div class="form-row">
-      <label for="id_bluesky_handle">Handle</label>
-      {{ form.bluesky_handle }}
-      <p class="hint">Your full handle (e.g. you.bsky.social)</p>
-    </div>
-    <div class="form-row">
-      <label for="id_bluesky_app_password">App Password</label>
-      {{ form.bluesky_app_password }}
-      <p class="hint">
-        Leave blank to keep existing. Use an App Password (Settings → Privacy
-        and Security → App Passwords).
-      </p>
-    </div>
-    <div class="form-row">
-      <label>
-        {{ form.crosspost_bluesky }} Enable cross‑posting notes to Bluesky
-      </label>
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>Security (2FA)</legend>
-    <p class="hint">
-      {% if request.user.otp_device %} Two‑factor authentication is
-      <strong>ENABLED</strong>. {% else %} Two‑factor authentication is
-      <strong>NOT enabled</strong>. {% endif %}
-    </p>
-    <div class="form-row">
-      {% if request.user.otp_device %}
-      <a class="btn-small" href="{% url 'two_factor:profile' %}">Manage 2FA</a>
-      <a class="btn-small" href="{% url 'two_factor:backup_tokens' %}"
-        >Backup Codes</a
-      >
-      <a class="btn-small" href="{% url 'two_factor:disable' %}">Disable</a>
-      {% else %}
-      <a class="btn-small" href="{% url 'two_factor:setup' %}"
-        >Enable Two‑Factor</a
-      >
-      {% endif %}
-    </div>
-  </fieldset>
-
-  {% if profile.last_crosspost_error %}
-  <div class="warning">
-    <strong>Last cross-post error:</strong><br />
-    {{ profile.last_crosspost_error }} ({{
-    profile.last_crosspost_error_at|date:"Y-m-d H:i:s" }})<br />
-    <button name="clear_error" value="1" type="submit" class="btn-small">
-      Clear Error
-    </button>
-  </div>
-  {% endif %}
-
-  <div class="actions">
-    <button type="submit">Save Settings</button>
+  <div class="save-bar">
+    <button type="submit" class="primary-save">Save Settings</button>
   </div>
 </form>
+{% endblock %}
 
-<hr />
-<h3>Connection Tests</h3>
-<p class="hint">Use these to verify credentials without posting publicly.</p>
-<div class="test-row">
-  <button
-    id="test_mastodon_btn"
-    {%
-    if
-    not
-    profile.mastodon_instance
-    or
-    not
-    profile.mastodon_token
-    %}disabled{%
-    endif
-    %}
-  >
-    Test Mastodon
-  </button>
-  <span id="test_mastodon_status" class="hint"></span>
-</div>
-<div class="test-row">
-  <button
-    id="test_bluesky_btn"
-    {%
-    if
-    not
-    profile.bluesky_handle
-    or
-    not
-    profile.bluesky_app_password
-    %}disabled{%
-    endif
-    %}
-  >
-    Test Bluesky
-  </button>
-  <span id="test_bluesky_status" class="hint"></span>
-</div>
-
-{% endblock %} {% block scripts %} {{ block.super }}
+{% block scripts %}
+  {{ block.super }}
 <script>
   (function () {
     function test(url, btnId, statusId) {
@@ -219,50 +183,52 @@ Aether{%endblock %} {% block content %}
       "test_bluesky_status"
     );
   })();
-</script>
-<style>
-  fieldset {
-    border: 1px solid var(--border-color, #444);
-    padding: 0.75rem 1rem 1rem;
-    margin: 1rem 0;
-  }
-  legend {
-    padding: 0 0.4rem;
-    font-weight: 600;
-  }
-  .form-row {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 0.75rem;
-  }
-  .form-row input[type="text"],
-  .form-row input[type="url"],
-  .form-row input[type="password"] {
-    max-width: 22rem;
-  }
-  .actions {
-    margin-top: 1rem;
-  }
-  .warning {
-    background: rgba(255, 120, 120, 0.08);
-    border: 1px solid #d55;
-    padding: 0.6rem 0.8rem;
-    border-radius: 4px;
-    margin: 1rem 0;
-    font-size: 0.9rem;
-  }
-  .btn-small {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.5rem;
-  }
-  .test-row {
-    margin: 0.5rem 0;
-  }
-  .hint.ok {
-    color: #5c5;
-  }
-  .hint.bad {
-    color: #d66;
-  }
-</style>
+  </script>
+  <style>
+    /* --- Settings Page Layout --- */
+    .settings-heading { margin-top:0; font-size:28px; font-weight:400; font-style:italic; letter-spacing:1px; }
+    .settings-form { display:flex; flex-direction:column; gap:1.5rem; }
+    .settings-grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); }
+    .settings-card { background: var(--card-bg); border:1px solid var(--border); padding:14px 16px 18px; position:relative; box-shadow:0 1px 5px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:.75rem; }
+    .settings-card:hover { box-shadow:0 3px 10px rgba(0,0,0,0.07); }
+    .card-title { margin:0 0 .25rem; font-size:15px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; opacity:.85; }
+    .card-title.mastodon { color: var(--accent); }
+    .card-title.bluesky { color: var(--accent); }
+    .card-title.security { color: var(--muted); }
+    .card-title.warn { color: var(--warn); }
+    .field { display:flex; flex-direction:column; gap:4px; }
+    .field.two-col { gap:4px; }
+    .field.two-col > div { display:flex; flex-direction:column; max-width:10rem; }
+    .field label { font-size:13px; font-weight:600; letter-spacing:.5px; }
+    .field .meta { font-weight:400; font-size:11px; opacity:.7; margin-left:4px; }
+    .field input[type=text],
+    .field input[type=url],
+    .field input[type=password],
+    .field textarea { border:1px solid var(--border); background:var(--card-bg); color:var(--ink); font-family:inherit; font-size:14px; padding:8px 10px; resize:vertical; max-width:100%; }
+    .field textarea { min-height:110px; line-height:1.4; }
+    .field input:focus, .field textarea:focus { outline:none; border-color: var(--accent); box-shadow:0 0 0 2px rgba(124,82,149,0.12); }
+    [data-theme="dark"] .field input:focus,[data-theme="dark"] .field textarea:focus { box-shadow:0 0 0 2px rgba(176,133,212,0.25); }
+    .inline-toggle .toggle-row { display:flex; align-items:center; gap:6px; font-size:13px; }
+    .inline-toggle input[type=checkbox] { transform:translateY(1px); }
+    .hint { margin:0; font-size:11px; line-height:1.4; opacity:.7; }
+    .hint.small { font-size:10px; }
+    .status-line { margin-top:0; }
+    .button-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .btn-chip, .settings-form button[type=button] { border:1px solid var(--accent); background:transparent; color:var(--accent); font:inherit; padding:4px 10px; border-radius:0; cursor:pointer; font-size:12px; letter-spacing:.5px; transition:.2s; }
+    .btn-chip:hover, .settings-form button[type=button]:hover { background:var(--accent); color:var(--card-bg); transform:translateY(-1px); box-shadow:0 2px 6px rgba(124,82,149,0.25); }
+    .settings-form button[disabled] { opacity:.4; cursor:not-allowed; }
+    .test-buttons { align-items:flex-start; }
+    .test-buttons button { font-size:12px; }
+    .warning-card { border-color: var(--warn); background: linear-gradient(to bottom, rgba(193,120,23,0.08), rgba(193,120,23,0.04)); }
+    .warning-card .error-text { margin:0 0 .5rem; font-size:12px; line-height:1.4; }
+    .save-bar { position:sticky; bottom:0; display:flex; justify-content:flex-end; padding:8px 0 0; }
+    .primary-save { border:1px solid var(--accent); background: var(--accent); color:var(--card-bg); font:inherit; padding:10px 20px; letter-spacing:.6px; cursor:pointer; font-size:15px; transition:.25s; }
+    .primary-save:hover { box-shadow:0 3px 14px rgba(124,82,149,0.28); transform:translateY(-2px); }
+    .settings-form input[type=checkbox] { accent-color: var(--accent); }
+    .hint.ok { color:#3a9c3a; opacity:1; }
+    .hint.bad { color:#c04040; opacity:1; }
+    @media (min-width: 980px) {
+      .settings-grid { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+    }
+  </style>
 {% endblock %}
