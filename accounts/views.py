@@ -259,24 +259,34 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
     # Markdown rendering (safe subset) for bio
     rendered_bio = ""
     if profile.bio:
+        bio_source = profile.bio
         try:
             from markdown_it import MarkdownIt  # type: ignore
-            from mdurl import urlencode  # type: ignore  # noqa: F401 (import used by markdown-it for links)
-            md = (
-                MarkdownIt("commonmark", {
-                    "html": False,
-                    "linkify": True,
+            md = MarkdownIt(
+                "commonmark",
+                {
+                    "html": False,       # disallow raw HTML
+                    "linkify": True,     # auto link plain URLs
                     "typographer": True,
-                })
-                .enable(["emphasis", "link", "list", "paragraph", "blockquote", "code", "fence", "strong", "table", "strikethrough"])
+                },
             )
-            # Basic sanitation: markdown-it-py with html disabled prevents raw HTML; still escape afterwards.
-            raw_html = md.render(profile.bio or "")
-            # Allow only a small set of tags via a whitelist removal (simple approach)
-            # For now rely on html disabled; treat output as safe (it only contains generated tags)
+            # Use default enabled rules; that's enough for emphasis / code / lists / blockquotes
+            raw_html = md.render(bio_source)
             rendered_bio = mark_safe(raw_html)
         except Exception:
-            rendered_bio = profile.bio  # fallback plain
+            # Fallback: extremely small inline markdown ( *em* _em_ `code` ) without raw HTML
+            import html, re
+            esc = html.escape(bio_source)
+            # code spans first
+            esc = re.sub(r"`([^`]{1,200})`", lambda m: f"<code>{m.group(1)}</code>", esc)
+            # bold (**) then emphasis (*) and _ _
+            esc = re.sub(r"\*\*([^*]{1,400})\*\*", r"<strong>\1</strong>", esc)
+            esc = re.sub(r"\*([^*]{1,400})\*", r"<em>\1</em>", esc)
+            esc = re.sub(r"__([^_]{1,400})__", r"<strong>\1</strong>", esc)
+            esc = re.sub(r"_([^_]{1,400})_", r"<em>\1</em>", esc)
+            # simple line breaks
+            esc = esc.replace("\r\n", "\n").replace("\r", "\n")
+            rendered_bio = mark_safe("<p>" + esc.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>")
 
     ctx = {"archive_user": user, "profile": profile, "notes": notes, "rendered_bio": rendered_bio}
     return render(request, "accounts/archive.html", ctx)
