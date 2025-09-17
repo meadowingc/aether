@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 .PHONY: dev migrate format makemigrations check shell create-admin collectstatic serve pull
 
 dev:
-	uv run manage.py runserver
+	DJANGO_ADMIN_ENABLED=True uv run manage.py runserver
 
 migrate:
 	uv run manage.py migrate
@@ -31,4 +31,4 @@ pull:
 	git pull
 
 serve: pull migrate collectstatic
-	DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py
+	DJANGO_ADMIN_ENABLED=False DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py

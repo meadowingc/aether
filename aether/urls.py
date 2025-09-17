@@ -18,12 +18,15 @@ from django.contrib import admin
 from django.urls import include, path
 from accounts.views import logout_view
 from two_factor.urls import urlpatterns as tf_urls
+from django.conf import settings
 
 urlpatterns = [
     # Two-factor authentication routes (login, setup, profile, backup tokens)
     path("", include(tf_urls)),
     path("logout/", logout_view, name="logout"),
     path("accounts/", include("accounts.urls")),
-    path('admin/', admin.site.urls),
     path('', include('aether_notes.urls')),
 ]
+
+if settings.ADMIN_ENABLED:
+    urlpatterns += [path('admin/', admin.site.urls)]

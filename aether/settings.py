@@ -175,3 +175,6 @@ LOGIN_REDIRECT_URL = "index"
 AUTH_LOGIN_RATE_LIMIT = {"limit": 5, "window": 60}       # 5 login POSTs / 60s / IP
 AUTH_CREATE_NOTE_LIMIT = {"limit": 2, "window": 60}      # already enforced via decorator
 AUTH_REGISTER_RATE_LIMIT = {"limit": 5, "window": 60}    # decorator on register view
+
+
+ADMIN_ENABLED = os.getenv("DJANGO_ADMIN_ENABLED", "True") == "True"
