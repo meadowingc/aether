@@ -32,9 +32,9 @@
                 <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
                 <span>Status.cafe</span>
                 <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
-                <span class="face-picker-wrap" style="display:inline-flex; align-items:center; gap:2px;">
-                  <input type="text" name="xp_status_cafe_face" id="xp_status_cafe_face" maxlength="8" placeholder="🙂" class="face-input" aria-label="Status.cafe emoji" style="width:2.4em; text-align:center;">
-                  <button type="button" id="face_picker_btn" class="face-picker-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="face_picker_popup" title="Pick an emoji" style="line-height:1; padding:2px 4px; font-size:0.85em;">⇧</button>
+                <span class="face-picker-wrap" style="display:inline-flex; align-items:center; gap:4px;">
+                  <input type="hidden" name="xp_status_cafe_face" id="xp_status_cafe_face" value="">
+                  <button type="button" id="face_display_btn" class="face-emoji-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="face_picker_popup" title="Pick an emoji" data-default="🙂">🙂</button>
                 </span>
               </label>
             {% endif %}
@@ -96,24 +96,222 @@
 
 {% block scripts %}
   <style>
-    .face-picker-btn { cursor:pointer; background:var(--btn-bg, #eee); border:1px solid #ccc; border-radius:4px; }
-    .face-picker-btn:focus { outline:2px solid #6aa0ff; outline-offset:1px; }
-    .face-picker-popup { z-index:1000; background:#fff; border:1px solid #bbb; border-radius:6px; padding:.4rem .5rem .6rem; width:260px; max-height:340px; overflow:auto; box-shadow:0 4px 18px -2px rgba(0,0,0,.25); font-size:0.95em; }
-    .face-picker-popup::-webkit-scrollbar { width:8px; }
-    .face-picker-popup::-webkit-scrollbar-thumb { background:#ccc; border-radius:4px; }
-    .fp-group { margin:0 0 .35rem; }
-    .fp-head { margin:0; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
-    .fp-head button.fp-toggle { background:none; border:none; font:inherit; padding:2px 4px; cursor:pointer; color:#444; }
-    .fp-head button.fp-toggle[aria-expanded="true"] { color:#111; font-weight:600; }
-  .fp-head button.fp-toggle::before { content:'▸'; display:inline-block; margin-right:4px; transform:translateY(-1px) rotate(0deg); transition:transform .15s ease; }
-  .fp-head button.fp-toggle[aria-expanded="true"]::before { transform:translateY(-1px) rotate(90deg); }
-    .fp-body { margin:.25rem 0 .4rem; line-height:1.5; }
-    .fp-item { background:none; border:none; padding:2px 4px; cursor:pointer; font-size:1.15rem; line-height:1.2; border-radius:4px; }
-    .fp-item:focus { outline:2px solid #7aa7ff; background:#eef5ff; }
-    .fp-item:hover { background:#f0f2f5; }
-  .fp-item.selected { background:#dde9ff; box-shadow:0 0 0 1px #7aa7ff inset; }
-    .face-input { background:#fff; }
-    @media (max-width: 520px) { .face-picker-popup { width: 90vw; } }
+    button.face-emoji-btn {
+      min-width: 2.2em;
+      height: 2.2em;
+      line-height: 2.1em;
+      font-size: 1.1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0.25em;
+      transition: background 0.15s ease, border-color 0.15s ease,
+        transform 0.15s ease;
+    }
+    .face-emoji-btn:hover {
+      background: rgba(124, 82, 149, 0.12);
+    }
+    [data-theme="dark"] .face-emoji-btn:hover {
+      background: rgba(176, 133, 212, 0.18);
+    }
+    .face-emoji-btn:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .face-emoji-btn:active {
+      transform: scale(0.92);
+    }
+    /* Themed emoji picker styles */
+    .face-picker-popup {
+      z-index: 1000;
+      background: var(--card-bg);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.6rem 0.75rem;
+      width: 280px;
+      max-height: 370px;
+      overflow: auto;
+      box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.08);
+      font-size: 0.95em;
+      backdrop-filter: blur(6px);
+    }
+    [data-theme="dark"] .face-picker-popup {
+      box-shadow: 0 10px 34px -8px rgba(0, 0, 0, 0.55),
+        0 2px 10px rgba(0, 0, 0, 0.4);
+    }
+    .face-picker-popup::-webkit-scrollbar {
+      width: 8px;
+    }
+    .face-picker-popup::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    .face-picker-popup::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+    .fp-group {
+      margin: 0 0 0.35rem;
+    }
+    .fp-body {
+      margin: 0.25rem 0 0.4rem;
+      line-height: 1.5;
+    }
+    .fp-item {
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      border-radius: 6px;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .fp-item:hover {
+      background: rgba(124, 82, 149, 0.12);
+    }
+    [data-theme="dark"] .fp-item:hover {
+      background: rgba(176, 133, 212, 0.18);
+    }
+    .fp-item:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      background: rgba(124, 82, 149, 0.18);
+    }
+    [data-theme="dark"] .fp-item:focus {
+      background: rgba(176, 133, 212, 0.25);
+    }
+    .fp-item:active {
+      transform: scale(0.92);
+    }
+    .fp-item.selected {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 0 1px var(--accent) inset;
+    }
+    .face-picker-popup .cat-tabs {
+      margin-bottom: 0.4rem;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .face-picker-popup .cat-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    .face-picker-popup .cat-tab {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      line-height: 1.15;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .face-picker-popup .cat-tab:hover {
+      color: var(--ink);
+      background: rgba(124, 82, 149, 0.12);
+    }
+    [data-theme="dark"] .face-picker-popup .cat-tab:hover {
+      background: rgba(176, 133, 212, 0.18);
+      color: var(--ink);
+    }
+    .face-picker-popup .cat-tab[aria-selected="true"] {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .face-picker-popup .fp-toolbar {
+      background: linear-gradient(to right, rgba(124, 82, 149, 0.08), transparent);
+      padding: 0.25rem 0.4rem 0.4rem;
+      border-radius: 6px;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 0 0 0.4rem;
+    }
+    [data-theme="dark"] .face-picker-popup .fp-toolbar {
+      background: linear-gradient(to right, rgba(176, 133, 212, 0.14), transparent);
+    }
+    .face-picker-popup .fp-search {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+    .face-picker-popup .fp-search:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124, 82, 149, 0.18);
+    }
+    [data-theme="dark"] .face-picker-popup .fp-search:focus {
+      box-shadow: 0 0 0 2px rgba(176, 133, 212, 0.25);
+    }
+    .face-picker-popup.mobile {
+      width: 100%;
+      max-height: 60vh;
+      left: 0 !important;
+      right: 0;
+      top: auto !important;
+      bottom: 0;
+      border-radius: 18px 18px 0 0;
+      padding: 0.75rem 0.85rem 1rem;
+      box-shadow: 0 -4px 24px -2px rgba(0, 0, 0, 0.45);
+    }
+    .face-picker-popup.mobile .fp-item {
+      font-size: 1.5rem;
+      padding: 8px 8px;
+    }
+    .face-picker-backdrop {
+      position: fixed;
+      inset: 0;
+      backdrop-filter: blur(2px);
+      z-index: 999;
+      display: none;
+      background: radial-gradient(
+        circle at 30% 40%,
+        rgba(0, 0, 0, 0.35),
+        rgba(0, 0, 0, 0.55)
+      );
+    }
+    .face-picker-backdrop.show {
+      display: block;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    @media (max-width: 520px) {
+      .face-picker-popup {
+        width: 90vw;
+      }
+    }
+    @media (max-width: 640px) {
+      .face-picker-popup {
+        font-size: 1.05em;
+      }
+      .face-picker-popup:not(.mobile) .fp-item {
+        font-size: 1.2rem;
+      }
+    }
   </style>
   <script>
     // Local storage for author and prepare device id field
@@ -358,39 +556,74 @@
     })();
     // --- Emoji picker popup
     (function() {
-      const btn = document.getElementById('face_picker_btn');
+      const btn = document.getElementById('face_display_btn');
       const input = document.getElementById('xp_status_cafe_face');
       if (!btn || !input) return;
 
       // Status.cafe curated sets extracted from live site markup
       const groups = [
         { name: 'Feelings', id: 'feelings', items: [
-          '🙂','�','�','🥰','�','❤️','�','�😇','�','😱','😭','�','�🤔','🧐','','�','🤒','�','🥺','🥱','🥳','🤖','�','�','�','🤐','🤩','�','�','❄️','✨','�','🌧️','🌙','🌈','�','�','�','☀️'
+          '🙂','😎','😛','🥰','😂','❤️','💔','😇','👽','😱','😭','🥹','🤔','🧐','😶','😯','🤒','😡','🥺','🥱','🥳','🤖','💀','😴','🙃','🤐','🤩','👀','🔥','❄️','✨','💡','🌧️','🌙','🌈','💤','🐶','🐱','☀️'
         ]},
         { name: 'Food & drinks', id: 'food', items: [
-          '🍱','🍕','🍔','🥗','🍫','🍙','🍿','🍣','🌮','🍏','🍞','�','🍦','�','🍶','🍷','�','🍸','🍾','🍺','�','☕️'
+          '🍱','🍕','🍔','🥗','🍫','🍙','🍿','🍣','🌮','🍏','🍞','🧀','🍦','🧋','🍶','🍷','🥃','🍸','🍾','🍺','🫖','☕️'
         ]},
         { name: 'Activities', id: 'activities', items: [
-          '�','🎁','📰','✅','✏️','⛵','�','✈️','�','🌱','�','�','�','�','🛼','🎨','�','�','�','�','📺','�','�','�','⛳️','�','�'
+          '📚','🎁','📰','✅','✏️','⛵','💻','✈️','🚄','🌱','💾','📱','📖','🛹','🛼','🎨','🎬','🎤','🎮','🎷','📺','🎶','🎲','🏆','⛳️','🎱','🏂'
         ]}
       ];
 
       let popup = document.getElementById('face_picker_popup');
-      if (!popup) {
+      let backdrop = document.getElementById('face_picker_backdrop');
+      const isMobileLike = () => window.matchMedia('(max-width:700px)').matches;
+
+      function buildPopup() {
+        if (popup) return;
+        backdrop = document.createElement('div');
+        backdrop.id = 'face_picker_backdrop';
+        backdrop.className = 'face-picker-backdrop';
+        document.body.appendChild(backdrop);
+
         popup = document.createElement('div');
         popup.id = 'face_picker_popup';
         popup.setAttribute('role', 'dialog');
-        popup.setAttribute('aria-modal', 'false');
+        popup.setAttribute('aria-modal', 'true');
         popup.setAttribute('aria-label', 'Choose emoji');
         popup.className = 'face-picker-popup';
         popup.style.display = 'none';
-          popup.setAttribute('aria-labelledby', 'face_picker_btn');
-          popup.innerHTML = groups.map(g => `\n<section class="fp-group" data-group="${g.id}">\n  <h3 class="fp-head"><button type="button" class="fp-toggle" aria-expanded="false" aria-controls="fp-body-${g.id}">${g.name}</button></h3>\n  <div class="fp-body" id="fp-body-${g.id}" hidden>\n    ${g.items.map(e => `<button type="button" class="fp-item" data-e="${e}" tabindex="-1">${e}</button>`).join(' ')}\n  </div>\n</section>`).join('\n');
+        popup.setAttribute('aria-labelledby', 'face_display_btn');
+
+        const tabs = `<nav class="cat-tabs" role="tablist">${groups.map((g,i)=>`<button type="button" role="tab" class="cat-tab" data-target="${g.id}" aria-selected="${i===0?'true':'false'}" tabindex="${i===0?'0':'-1'}">${g.name}</button>`).join('')}</nav>`;
+        const search = `<div class="fp-toolbar"><input type="search" placeholder="Search…" class="fp-search" aria-label="Search emoji"></div>`;
+        const bodies = groups.map((g,i)=>`
+          <section class="fp-group" data-group="${g.id}" ${i!==0?'hidden':''}>
+            <h3 class="sr-only">${g.name}</h3>
+            <div class="fp-body" role="group" aria-label="${g.name} emojis">
+              ${g.items.map(e => `<button type="button" class="fp-item" data-e="${e}" tabindex="-1">${e}</button>`).join(' ')}
+            </div>
+          </section>`).join('\n');
+        popup.innerHTML = `${search}${tabs}<div class="fp-scroller">${bodies}</div>`;
         document.body.appendChild(popup);
       }
+      buildPopup();
+
+      function refreshMobileClass() {
+        if (!popup) return;
+        if (isMobileLike()) popup.classList.add('mobile'); else popup.classList.remove('mobile');
+      }
+      refreshMobileClass();
+      window.addEventListener('resize', refreshMobileClass);
 
       // Position popup under/near button
       function position() {
+        if (popup.classList.contains('mobile')) {
+          popup.style.position = 'fixed';
+          popup.style.top = 'auto';
+          popup.style.left = '0';
+          popup.style.right = '0';
+          popup.style.bottom = '0';
+          return;
+        }
         const r = btn.getBoundingClientRect();
         popup.style.position = 'absolute';
         popup.style.top = `${Math.round(window.scrollY + r.bottom + 4)}px`;
@@ -400,17 +633,16 @@
       function open() {
         position();
         popup.style.display = 'block';
+        if (backdrop) backdrop.classList.add('show');
         btn.setAttribute('aria-expanded', 'true');
         document.addEventListener('mousedown', onDocDown, true);
         document.addEventListener('keydown', onKey);
-        // Ensure first group is expanded for quicker selection
-        const firstToggle = popup.querySelector('.fp-toggle');
-        if (firstToggle && firstToggle.getAttribute('aria-expanded') === 'false') {
-          firstToggle.click();
-        }
+        const firstTab = popup.querySelector('.cat-tab[aria-selected="true"]');
+        if (firstTab) firstTab.focus();
       }
       function close(returnFocus=true) {
         popup.style.display = 'none';
+        if (backdrop) backdrop.classList.remove('show');
         btn.setAttribute('aria-expanded', 'false');
         document.removeEventListener('mousedown', onDocDown, true);
         document.removeEventListener('keydown', onKey);
@@ -426,7 +658,7 @@
         if (e.key === 'Escape') { close(); }
         // Basic focus trap while open: cycle Tab within popup & button
         if (e.key === 'Tab' && popup.style.display !== 'none') {
-          const focusables = [btn, ...popup.querySelectorAll('button.fp-toggle, button.fp-item')].filter(el => !el.closest('.fp-body[hidden]'));
+          const focusables = [btn, ...popup.querySelectorAll('.fp-item')].filter(el => !el.closest('.fp-body[hidden]'));
           if (!focusables.length) return;
             const idx = focusables.indexOf(document.activeElement);
             let nextIdx = idx;
@@ -438,60 +670,163 @@
       }
       btn.addEventListener('click', toggle);
 
-      // Expand/collapse groups
       popup.addEventListener('click', function(e) {
         const t = e.target;
-        if (t.classList.contains('fp-toggle')) {
-          const body = t.closest('.fp-group').querySelector('.fp-body');
-          const expanded = t.getAttribute('aria-expanded') === 'true';
-          t.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-          if (expanded) body.hidden = true; else body.hidden = false;
-          if (!expanded) {
-            // focus first item
-            const item = body.querySelector('.fp-item');
-            if (item) item.focus();
-          }
+        if (t.classList.contains('cat-tab')) {
+          const target = t.getAttribute('data-target');
+          popup.querySelectorAll('.cat-tab').forEach(tab => {
+            const sel = tab === t;
+            tab.setAttribute('aria-selected', sel ? 'true':'false');
+            tab.tabIndex = sel ? 0 : -1;
+          });
+          popup.querySelectorAll('.fp-group').forEach(g => {
+            if (g.getAttribute('data-group') === target) g.hidden = false; else g.hidden = true;
+          });
+          // focus first emoji in that group
+          const first = popup.querySelector(`.fp-group[data-group="${target}"] .fp-item`);
+          if (first) first.focus();
           return;
         }
         if (t.classList.contains('fp-item')) {
           const val = t.getAttribute('data-e');
           input.value = val;
+          btn.textContent = val;
+          btn.setAttribute('data-selected', val);
           try { localStorage.setItem('aether_xp_status_cafe_face', val); } catch(e) {}
           markSelected(val);
+          addRecent(val);
           close();
         }
       });
+
+      // Tab keyboard navigation
+      popup.addEventListener('keydown', function(e) {
+        const activeTab = document.activeElement.closest && document.activeElement.closest('.cat-tab');
+        if (activeTab) {
+          const tabs = Array.from(popup.querySelectorAll('.cat-tab'));
+          let idx = tabs.indexOf(activeTab);
+          if (e.key === 'ArrowRight') { idx = (idx+1)%tabs.length; e.preventDefault(); tabs[idx].click(); tabs[idx].focus(); }
+          else if (e.key === 'ArrowLeft') { idx = (idx-1+tabs.length)%tabs.length; e.preventDefault(); tabs[idx].click(); tabs[idx].focus(); }
+        }
+      }, true);
+
+      // Search filtering (debounced)
+      const searchInput = popup.querySelector('.fp-search');
+      let searchTimer = null;
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          clearTimeout(searchTimer);
+            const qRaw = searchInput.value.trim();
+            searchTimer = setTimeout(()=> filterEmojis(qRaw), 120);
+        });
+      }
+
+      function filterEmojis(q) {
+        const qn = q.toLowerCase();
+        popup.querySelectorAll('.fp-group').forEach(group => {
+          let any = false;
+          group.querySelectorAll('.fp-item').forEach(item => {
+            const e = item.getAttribute('data-e');
+            const show = !qn || e.toLowerCase().includes(qn);
+            item.style.display = show ? '' : 'none';
+            if (show) any = true;
+          });
+          group.style.display = any ? '' : 'none';
+        });
+      }
 
       // Basic keyboard nav within open body using arrow keys
       popup.addEventListener('keydown', function(e) {
         const current = document.activeElement;
         if (!current || !current.classList.contains('fp-item')) return;
-        const items = Array.from(popup.querySelectorAll('.fp-item:not([hidden])'));
-        const idx = items.indexOf(current);
+        const visibleItems = Array.from(popup.querySelectorAll('.fp-group:not([hidden]) .fp-item')).filter(it => it.style.display !== 'none');
+        const idx = visibleItems.indexOf(current);
         if (idx === -1) return;
         let nextIdx = null;
+        const perRow = 8; // heuristic
         if (e.key === 'ArrowRight') nextIdx = idx + 1;
         else if (e.key === 'ArrowLeft') nextIdx = idx - 1;
-        else if (e.key === 'ArrowDown') nextIdx = idx + 8; // approximate row jump
-        else if (e.key === 'ArrowUp') nextIdx = idx - 8;
-        else if (e.key === 'Enter') { current.click(); return; }
+        else if (e.key === 'ArrowDown') nextIdx = idx + perRow;
+        else if (e.key === 'ArrowUp') nextIdx = idx - perRow;
+        else if (e.key === 'Home') nextIdx = 0;
+        else if (e.key === 'End') nextIdx = visibleItems.length - 1;
+        else if (e.key === 'Enter' || e.key === ' ') { current.click(); return; }
         if (nextIdx != null) {
           e.preventDefault();
           if (nextIdx < 0) nextIdx = 0;
-          if (nextIdx >= items.length) nextIdx = items.length - 1;
-          items[nextIdx].focus();
+          if (nextIdx >= visibleItems.length) nextIdx = visibleItems.length - 1;
+          visibleItems[nextIdx].focus();
         }
       });
 
       function markSelected(val) {
         popup.querySelectorAll('.fp-item.selected').forEach(el => el.classList.remove('selected'));
         if (!val) return;
-        const btn = popup.querySelector(`.fp-item[data-e="${CSS.escape(val)}"]`);
-        if (btn) btn.classList.add('selected');
+        const b = popup.querySelector(`.fp-item[data-e="${CSS.escape(val)}"]`);
+        if (b) b.classList.add('selected');
       }
 
+      function addRecent(val) {
+        if (!val) return;
+        try {
+          const key = 'aether_face_recent';
+          let arr = JSON.parse(localStorage.getItem(key) || '[]');
+          arr = arr.filter(v => v !== val);
+          arr.unshift(val);
+            if (arr.length > 12) arr = arr.slice(0,12);
+          localStorage.setItem(key, JSON.stringify(arr));
+          renderRecent(arr);
+        } catch(e) {}
+      }
+
+      function renderRecent(arr) {
+        try {
+          const key = 'aether_face_recent';
+          if (!arr) arr = JSON.parse(localStorage.getItem(key) || '[]');
+          if (!arr.length) return; // no recent yet
+          let recentGroup = popup.querySelector('.fp-group[data-group="recent"]');
+          if (!recentGroup) {
+            recentGroup = document.createElement('section');
+            recentGroup.className = 'fp-group';
+            recentGroup.setAttribute('data-group','recent');
+            recentGroup.innerHTML = `<h3 class="sr-only">Recently used</h3><div class="fp-body" role="group" aria-label="Recently used emojis"></div>`;
+            const firstGroup = popup.querySelector('.fp-group');
+            popup.querySelector('.fp-scroller').insertBefore(recentGroup, firstGroup);
+            // Add tab
+            const tabsWrap = popup.querySelector('.cat-tabs');
+            if (tabsWrap && !tabsWrap.querySelector('[data-target="recent"]')) {
+              const btnEl = document.createElement('button');
+              btnEl.type='button';
+              btnEl.role='tab';
+              btnEl.className='cat-tab';
+              btnEl.setAttribute('data-target','recent');
+              btnEl.setAttribute('aria-selected','false');
+              btnEl.tabIndex = -1;
+              btnEl.textContent = 'Recent';
+              tabsWrap.insertBefore(btnEl, tabsWrap.firstChild);
+            }
+          }
+          const body = recentGroup.querySelector('.fp-body');
+          body.innerHTML = arr.map(e => `<button type="button" class="fp-item" data-e="${e}" tabindex="-1">${e}</button>`).join(' ');
+        } catch(e) {}
+      }
+
+      renderRecent();
+
       // Initialize selection highlight from stored / current value
-      try { markSelected(localStorage.getItem('aether_xp_status_cafe_face') || input.value || ''); } catch(e) {}
+      try {
+        const stored = localStorage.getItem('aether_xp_status_cafe_face');
+        if (stored) {
+          input.value = stored;
+          btn.textContent = stored;
+          btn.setAttribute('data-selected', stored);
+        } else {
+          const def = btn.getAttribute('data-default') || '🙂';
+          input.value = def;
+          btn.textContent = def;
+        }
+        markSelected(input.value);
+      } catch(e) {}
     })();
 
     // Flag handler — one flag per device
