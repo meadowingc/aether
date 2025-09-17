@@ -22,9 +22,20 @@ class Profile(models.Model):
     bluesky_handle = models.CharField(max_length=100, blank=True)
     bluesky_app_password = EncryptedTextField(blank=True)
 
+    # Status.cafe (HTML form scraping integration)
+    status_cafe_username = models.CharField(max_length=100, blank=True)
+    status_cafe_password = EncryptedTextField(blank=True)
+    status_cafe_default_face = models.CharField(
+        max_length=8,
+        blank=True,
+        help_text="Optional default emoji code to use when cross‑posting (e.g. 🙂)",
+    )
+
     # Preferences
     crosspost_mastodon = models.BooleanField(default=False)
     crosspost_bluesky = models.BooleanField(default=False)
+    crosspost_status_cafe = models.BooleanField(default=False)
+
     # Archive / profile page (optional). If enabled, show user's notes beyond ephemeral window.
     show_archive = models.BooleanField(default=False, help_text="If true, a public archive/profile page is enabled")
     bio = models.TextField(blank=True, help_text="Optional short bio displayed on your archive page")

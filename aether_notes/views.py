@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from accounts.utils import rate_limited
-from accounts.social import post_mastodon, post_bluesky
+from accounts.social import post_mastodon, post_bluesky, post_status_cafe
 
 from .models import Note, NoteFlag, NoteView
 
@@ -89,6 +89,7 @@ def create_note(request):
             # Presence of checkbox name indicates user wants this note posted there (unchecked => absent)
             want_masto = bool(request.POST.get("xp_mastodon"))
             want_bsky = bool(request.POST.get("xp_bluesky"))
+            want_status_cafe = bool(request.POST.get("xp_status_cafe"))
             # Only attempt network if globally enabled & user selected it.
             try:
                 if want_masto and prof.crosspost_mastodon:
@@ -99,6 +100,11 @@ def create_note(request):
                 if want_bsky and prof.crosspost_bluesky:
                     try:
                         post_bluesky(prof, new_note.text)
+                    except Exception:
+                        pass
+                if want_status_cafe and getattr(prof, "crosspost_status_cafe", False):
+                    try:
+                        post_status_cafe(prof, new_note.text)
                     except Exception:
                         pass
                 # If neither produced/retained an error and there was a previous error, we could clear

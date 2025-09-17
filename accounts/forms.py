@@ -42,6 +42,7 @@ class ProfileForm(forms.ModelForm):
     # Pre-populate and display existing secrets; users can clear by submitting blank.
     mastodon_token = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
     bluesky_app_password = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
+    status_cafe_password = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
 
     class Meta:
         model = Profile
@@ -54,8 +55,12 @@ class ProfileForm(forms.ModelForm):
             "mastodon_token",
             "bluesky_handle",
             "bluesky_app_password",
+            "status_cafe_username",
+            "status_cafe_password",
+            "status_cafe_default_face",
             "crosspost_mastodon",
             "crosspost_bluesky",
+            "crosspost_status_cafe",
         ]
 
     def save(self, commit=True):
@@ -65,6 +70,8 @@ class ProfileForm(forms.ModelForm):
             profile.mastodon_token = self.cleaned_data.get("mastodon_token") or ""
         if "bluesky_app_password" in self.cleaned_data:
             profile.bluesky_app_password = self.cleaned_data.get("bluesky_app_password") or ""
+        if "status_cafe_password" in self.cleaned_data:
+            profile.status_cafe_password = self.cleaned_data.get("status_cafe_password") or ""
         if commit:
             profile.save()
         return profile

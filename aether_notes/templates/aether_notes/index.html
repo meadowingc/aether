@@ -27,6 +27,13 @@
                 <span id="bluesky_counter" class="char-counter small" data-limit="300">0/300</span>
               </label>
             {% endif %}
+            {% if p.crosspost_status_cafe and p.status_cafe_username and p.status_cafe_password %}
+              <label class="net-toggle">
+                <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
+                <span>Status.cafe</span>
+                <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
+              </label>
+            {% endif %}
           </div>
         {% endwith %}
       {% endif %}
@@ -197,6 +204,7 @@
         }
         restoreToggle('xp_mastodon', 'aether_xp_mastodon');
         restoreToggle('xp_bluesky', 'aether_xp_bluesky');
+  restoreToggle('xp_status_cafe', 'aether_xp_status_cafe');
     })();
 
     // Lightweight device id for unique witness tracking

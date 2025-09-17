@@ -98,6 +98,33 @@
       </div>
     </div>
 
+    <!-- Status.cafe Card -->
+    <div class="settings-card">
+      <h3 class="card-title" style="color:var(--accent);">Status.cafe</h3>
+      <div class="field">
+        <label for="id_status_cafe_username">Username</label>
+        {{ form.status_cafe_username }}
+        <p class="hint">Your status.cafe username.</p>
+      </div>
+      <div class="field">
+        <label for="id_status_cafe_password">Password</label>
+        {{ form.status_cafe_password }}
+        <p class="hint">Stored encrypted. Use a unique password (site has no API).</p>
+      </div>
+      <div class="field">
+        <label for="id_status_cafe_default_face">Default Emoji</label>
+        {{ form.status_cafe_default_face }}
+        <p class="hint">Optional emoji (e.g. 🙂). Leave blank for site default.</p>
+      </div>
+      <div class="field inline-toggle">
+        <div class="toggle-row">{{ form.crosspost_status_cafe }} <span>Enable cross-posting notes to Status.cafe</span></div>
+      </div>
+      <div class="field test-buttons">
+        <button type="button" id="test_status_cafe_btn" {% if not profile.status_cafe_username or not profile.status_cafe_password %}disabled{% endif %}>Test Login</button>
+        <span id="test_status_cafe_status" class="hint"></span>
+      </div>
+    </div>
+
     <!-- Security Card -->
     <div class="settings-card">
       <h3 class="card-title security">Security & 2FA</h3>
@@ -181,6 +208,11 @@
       "{% url 'accounts:test_bluesky' %}",
       "test_bluesky_btn",
       "test_bluesky_status"
+    );
+    test(
+      "{% url 'accounts:test_status_cafe' %}",
+      "test_status_cafe_btn",
+      "test_status_cafe_status"
     );
   })();
   </script>

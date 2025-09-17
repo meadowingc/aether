@@ -5,6 +5,7 @@ import json
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.views.decorators.http import require_POST
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -27,14 +28,17 @@ User = get_user_model()
 def register(request: HttpRequest) -> HttpResponse:
     if request.user.is_authenticated:
         return redirect("index")
+
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             return redirect("index")
+
     else:
         form = RegistrationForm()
+
     return render(request, "accounts/register.html", {"form": form})
 
 
@@ -51,6 +55,7 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             return redirect(reverse("accounts:settings"))
     else:
         form = ProfileForm(instance=profile)
+
     # Show existing secrets (user can clear by submitting blank). Consider masking in future if needed.
     ctx = {
         "form": form,
@@ -68,17 +73,15 @@ def check_username(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def clear_crosspost_error(request: HttpRequest) -> HttpResponse:
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST required")
     request.user.profile.clear_crosspost_error()  # type: ignore[attr-defined]
     return JsonResponse({"ok": True})
 
 
 @login_required
+@require_POST
 def test_mastodon(request: HttpRequest) -> HttpResponse:
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST required")
     profile: Profile = request.user.profile  # type: ignore[attr-defined]
     inst = (profile.mastodon_instance or "").rstrip("/")
     token = profile.mastodon_token or ""
@@ -103,9 +106,8 @@ def test_mastodon(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def test_bluesky(request: HttpRequest) -> HttpResponse:
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST required")
     profile: Profile = request.user.profile  # type: ignore[attr-defined]
     handle = profile.bluesky_handle or ""
     app_pw = profile.bluesky_app_password or ""
@@ -120,6 +122,57 @@ def test_bluesky(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"ok": True})
     except Exception as e:  # noqa: BLE001
         profile.record_crosspost_error(f"Bluesky exception: {e.__class__.__name__}")
+        return JsonResponse({"ok": False, "error": "exception"})
+
+
+@login_required
+@require_POST
+def test_status_cafe(request: HttpRequest) -> HttpResponse:
+    profile: Profile = request.user.profile  # type: ignore[attr-defined]
+    username = profile.status_cafe_username or ""
+    password = profile.status_cafe_password or ""
+
+    if not username or not password:
+        return JsonResponse({"ok": False, "error": "missing_credentials"})
+
+    try:
+        import httpx
+        from bs4 import BeautifulSoup  # type: ignore
+
+        with httpx.Client(base_url="https://status.cafe", timeout=15, follow_redirects=True) as client:
+            r = client.get("/login")
+            if r.status_code != 200:
+                profile.record_crosspost_error(f"Status.cafe login_get {r.status_code}")
+                return JsonResponse({"ok": False, "error": "login_get"})
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            token_input = soup.find("input", {"name": "gorilla.csrf.Token"})
+            token = token_input.get("value") if token_input else None
+
+            if not token:
+                profile.record_crosspost_error("Status.cafe token_missing")
+                return JsonResponse({"ok": False, "error": "token_missing"})
+
+            client.post(
+                "/check-login",
+                data={
+                    "gorilla.csrf.Token": token,
+                    "name": username,
+                    "password": password,
+                },
+            )
+
+            # Validate session by attempting /settings; redirect to /login indicates failure
+            rs = client.get("/settings")
+            if "login" in rs.url.path.lower():
+                profile.record_crosspost_error("Status.cafe auth_failed")
+                return JsonResponse({"ok": False, "error": "auth_failed"})
+
+        profile.clear_crosspost_error()
+        return JsonResponse({"ok": True})
+
+    except Exception as e:  # noqa: BLE001
+        profile.record_crosspost_error(f"Status.cafe exception: {e.__class__.__name__}")
         return JsonResponse({"ok": False, "error": "exception"})
 
 
