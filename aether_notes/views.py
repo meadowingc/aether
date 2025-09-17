@@ -90,6 +90,8 @@ def create_note(request):
             want_masto = bool(request.POST.get("xp_mastodon"))
             want_bsky = bool(request.POST.get("xp_bluesky"))
             want_status_cafe = bool(request.POST.get("xp_status_cafe"))
+            status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip()
+
             # Only attempt network if globally enabled & user selected it.
             try:
                 if want_masto and prof.crosspost_mastodon:
@@ -104,7 +106,7 @@ def create_note(request):
                         pass
                 if want_status_cafe and getattr(prof, "crosspost_status_cafe", False):
                     try:
-                        post_status_cafe(prof, new_note.text)
+                        post_status_cafe(prof, new_note.text, face=status_cafe_face or None)
                     except Exception:
                         pass
                 # If neither produced/retained an error and there was a previous error, we could clear

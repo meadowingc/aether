@@ -57,7 +57,6 @@ class ProfileForm(forms.ModelForm):
             "bluesky_app_password",
             "status_cafe_username",
             "status_cafe_password",
-            "status_cafe_default_face",
             "crosspost_mastodon",
             "crosspost_bluesky",
             "crosspost_status_cafe",

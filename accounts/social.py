@@ -46,7 +46,7 @@ def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None]:
         return False, None
 
 
-def post_status_cafe(profile: Profile, text: str) -> Tuple[bool, str | None]:
+def post_status_cafe(profile: Profile, text: str, face: str | None = None) -> Tuple[bool, str | None]:
     """Programmatic login + status submit to status.cafe.
 
     Since there is no public API we mimic browser form posts:
@@ -118,13 +118,15 @@ def post_status_cafe(profile: Profile, text: str) -> Tuple[bool, str | None]:
 
             csrf_post = hidden_csrf["value"]
 
-            face = profile.status_cafe_default_face or ""
+            chosen_face = (face or "").strip()
+            if chosen_face and len(chosen_face) > 8:
+                chosen_face = chosen_face[:8]
             content = _truncate(text, STATUS_CAFE_LIMIT)
             r4 = client.post(
                 "/add",
                 data={
                     "gorilla.csrf.Token": csrf_post,
-                    "face": face or "🙂",  # default emoji if unset
+                    "face": chosen_face or "🙂",  # default emoji if unset
                     "content": content,
                 },
             )

@@ -25,11 +25,6 @@ class Profile(models.Model):
     # Status.cafe (HTML form scraping integration)
     status_cafe_username = models.CharField(max_length=100, blank=True)
     status_cafe_password = EncryptedTextField(blank=True)
-    status_cafe_default_face = models.CharField(
-        max_length=8,
-        blank=True,
-        help_text="Optional default emoji code to use when cross‑posting (e.g. 🙂)",
-    )
 
     # Preferences
     crosspost_mastodon = models.BooleanField(default=False)

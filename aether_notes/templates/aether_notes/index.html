@@ -32,6 +32,10 @@
                 <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
                 <span>Status.cafe</span>
                 <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
+                <span class="face-picker-wrap" style="display:inline-flex; align-items:center; gap:2px;">
+                  <input type="text" name="xp_status_cafe_face" id="xp_status_cafe_face" maxlength="8" placeholder="🙂" class="face-input" aria-label="Status.cafe emoji" style="width:2.4em; text-align:center;">
+                  <button type="button" id="face_picker_btn" class="face-picker-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="face_picker_popup" title="Pick an emoji" style="line-height:1; padding:2px 4px; font-size:0.85em;">⇧</button>
+                </span>
               </label>
             {% endif %}
           </div>
@@ -91,6 +95,26 @@
 {% endblock content %}
 
 {% block scripts %}
+  <style>
+    .face-picker-btn { cursor:pointer; background:var(--btn-bg, #eee); border:1px solid #ccc; border-radius:4px; }
+    .face-picker-btn:focus { outline:2px solid #6aa0ff; outline-offset:1px; }
+    .face-picker-popup { z-index:1000; background:#fff; border:1px solid #bbb; border-radius:6px; padding:.4rem .5rem .6rem; width:260px; max-height:340px; overflow:auto; box-shadow:0 4px 18px -2px rgba(0,0,0,.25); font-size:0.95em; }
+    .face-picker-popup::-webkit-scrollbar { width:8px; }
+    .face-picker-popup::-webkit-scrollbar-thumb { background:#ccc; border-radius:4px; }
+    .fp-group { margin:0 0 .35rem; }
+    .fp-head { margin:0; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
+    .fp-head button.fp-toggle { background:none; border:none; font:inherit; padding:2px 4px; cursor:pointer; color:#444; }
+    .fp-head button.fp-toggle[aria-expanded="true"] { color:#111; font-weight:600; }
+  .fp-head button.fp-toggle::before { content:'▸'; display:inline-block; margin-right:4px; transform:translateY(-1px) rotate(0deg); transition:transform .15s ease; }
+  .fp-head button.fp-toggle[aria-expanded="true"]::before { transform:translateY(-1px) rotate(90deg); }
+    .fp-body { margin:.25rem 0 .4rem; line-height:1.5; }
+    .fp-item { background:none; border:none; padding:2px 4px; cursor:pointer; font-size:1.15rem; line-height:1.2; border-radius:4px; }
+    .fp-item:focus { outline:2px solid #7aa7ff; background:#eef5ff; }
+    .fp-item:hover { background:#f0f2f5; }
+  .fp-item.selected { background:#dde9ff; box-shadow:0 0 0 1px #7aa7ff inset; }
+    .face-input { background:#fff; }
+    @media (max-width: 520px) { .face-picker-popup { width: 90vw; } }
+  </style>
   <script>
     // Local storage for author and prepare device id field
     (function() {
@@ -204,7 +228,22 @@
         }
         restoreToggle('xp_mastodon', 'aether_xp_mastodon');
         restoreToggle('xp_bluesky', 'aether_xp_bluesky');
-  restoreToggle('xp_status_cafe', 'aether_xp_status_cafe');
+        restoreToggle('xp_status_cafe', 'aether_xp_status_cafe');
+
+        // Persist chosen Status.cafe face emoji
+        const faceInput = document.getElementById('xp_status_cafe_face');
+        if (faceInput) {
+          try {
+            const savedFace = localStorage.getItem('aether_xp_status_cafe_face');
+            if (savedFace) faceInput.value = savedFace;
+            faceInput.addEventListener('input', () => {
+              const v = (faceInput.value || '').trim();
+              // keep at most one grapheme-ish (allow short multi-codepoint emoji like family/flags)
+              if (v.length > 8) faceInput.value = v.slice(0,8);
+              try { localStorage.setItem('aether_xp_status_cafe_face', faceInput.value); } catch(e) {}
+            });
+          } catch(e) {}
+        }
     })();
 
     // Lightweight device id for unique witness tracking
@@ -316,6 +355,143 @@
           }).catch(() => alert('Failed to delete. Please try again.'));
         }
         document.addEventListener('click', onClick);
+    })();
+    // --- Emoji picker popup
+    (function() {
+      const btn = document.getElementById('face_picker_btn');
+      const input = document.getElementById('xp_status_cafe_face');
+      if (!btn || !input) return;
+
+      // Status.cafe curated sets extracted from live site markup
+      const groups = [
+        { name: 'Feelings', id: 'feelings', items: [
+          '🙂','�','�','🥰','�','❤️','�','�😇','�','😱','😭','�','�🤔','🧐','','�','🤒','�','🥺','🥱','🥳','🤖','�','�','�','🤐','🤩','�','�','❄️','✨','�','🌧️','🌙','🌈','�','�','�','☀️'
+        ]},
+        { name: 'Food & drinks', id: 'food', items: [
+          '🍱','🍕','🍔','🥗','🍫','🍙','🍿','🍣','🌮','🍏','🍞','�','🍦','�','🍶','🍷','�','🍸','🍾','🍺','�','☕️'
+        ]},
+        { name: 'Activities', id: 'activities', items: [
+          '�','🎁','📰','✅','✏️','⛵','�','✈️','�','🌱','�','�','�','�','🛼','🎨','�','�','�','�','📺','�','�','�','⛳️','�','�'
+        ]}
+      ];
+
+      let popup = document.getElementById('face_picker_popup');
+      if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'face_picker_popup';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-modal', 'false');
+        popup.setAttribute('aria-label', 'Choose emoji');
+        popup.className = 'face-picker-popup';
+        popup.style.display = 'none';
+          popup.setAttribute('aria-labelledby', 'face_picker_btn');
+          popup.innerHTML = groups.map(g => `\n<section class="fp-group" data-group="${g.id}">\n  <h3 class="fp-head"><button type="button" class="fp-toggle" aria-expanded="false" aria-controls="fp-body-${g.id}">${g.name}</button></h3>\n  <div class="fp-body" id="fp-body-${g.id}" hidden>\n    ${g.items.map(e => `<button type="button" class="fp-item" data-e="${e}" tabindex="-1">${e}</button>`).join(' ')}\n  </div>\n</section>`).join('\n');
+        document.body.appendChild(popup);
+      }
+
+      // Position popup under/near button
+      function position() {
+        const r = btn.getBoundingClientRect();
+        popup.style.position = 'absolute';
+        popup.style.top = `${Math.round(window.scrollY + r.bottom + 4)}px`;
+        popup.style.left = `${Math.round(window.scrollX + r.left)}px`;
+      }
+
+      function open() {
+        position();
+        popup.style.display = 'block';
+        btn.setAttribute('aria-expanded', 'true');
+        document.addEventListener('mousedown', onDocDown, true);
+        document.addEventListener('keydown', onKey);
+        // Ensure first group is expanded for quicker selection
+        const firstToggle = popup.querySelector('.fp-toggle');
+        if (firstToggle && firstToggle.getAttribute('aria-expanded') === 'false') {
+          firstToggle.click();
+        }
+      }
+      function close(returnFocus=true) {
+        popup.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKey);
+        if (returnFocus) btn.focus();
+      }
+      function toggle() { popup.style.display === 'none' ? open() : close(); }
+
+      function onDocDown(e) {
+        if (popup.contains(e.target) || e.target === btn) return;
+        close(false);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') { close(); }
+        // Basic focus trap while open: cycle Tab within popup & button
+        if (e.key === 'Tab' && popup.style.display !== 'none') {
+          const focusables = [btn, ...popup.querySelectorAll('button.fp-toggle, button.fp-item')].filter(el => !el.closest('.fp-body[hidden]'));
+          if (!focusables.length) return;
+            const idx = focusables.indexOf(document.activeElement);
+            let nextIdx = idx;
+            if (e.shiftKey) nextIdx = idx <= 0 ? focusables.length - 1 : idx - 1; else nextIdx = idx === focusables.length - 1 ? 0 : idx + 1;
+            if (idx === -1) return; // allow initial tab in
+            e.preventDefault();
+            focusables[nextIdx].focus();
+        }
+      }
+      btn.addEventListener('click', toggle);
+
+      // Expand/collapse groups
+      popup.addEventListener('click', function(e) {
+        const t = e.target;
+        if (t.classList.contains('fp-toggle')) {
+          const body = t.closest('.fp-group').querySelector('.fp-body');
+          const expanded = t.getAttribute('aria-expanded') === 'true';
+          t.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+          if (expanded) body.hidden = true; else body.hidden = false;
+          if (!expanded) {
+            // focus first item
+            const item = body.querySelector('.fp-item');
+            if (item) item.focus();
+          }
+          return;
+        }
+        if (t.classList.contains('fp-item')) {
+          const val = t.getAttribute('data-e');
+          input.value = val;
+          try { localStorage.setItem('aether_xp_status_cafe_face', val); } catch(e) {}
+          markSelected(val);
+          close();
+        }
+      });
+
+      // Basic keyboard nav within open body using arrow keys
+      popup.addEventListener('keydown', function(e) {
+        const current = document.activeElement;
+        if (!current || !current.classList.contains('fp-item')) return;
+        const items = Array.from(popup.querySelectorAll('.fp-item:not([hidden])'));
+        const idx = items.indexOf(current);
+        if (idx === -1) return;
+        let nextIdx = null;
+        if (e.key === 'ArrowRight') nextIdx = idx + 1;
+        else if (e.key === 'ArrowLeft') nextIdx = idx - 1;
+        else if (e.key === 'ArrowDown') nextIdx = idx + 8; // approximate row jump
+        else if (e.key === 'ArrowUp') nextIdx = idx - 8;
+        else if (e.key === 'Enter') { current.click(); return; }
+        if (nextIdx != null) {
+          e.preventDefault();
+          if (nextIdx < 0) nextIdx = 0;
+          if (nextIdx >= items.length) nextIdx = items.length - 1;
+          items[nextIdx].focus();
+        }
+      });
+
+      function markSelected(val) {
+        popup.querySelectorAll('.fp-item.selected').forEach(el => el.classList.remove('selected'));
+        if (!val) return;
+        const btn = popup.querySelector(`.fp-item[data-e="${CSS.escape(val)}"]`);
+        if (btn) btn.classList.add('selected');
+      }
+
+      // Initialize selection highlight from stored / current value
+      try { markSelected(localStorage.getItem('aether_xp_status_cafe_face') || input.value || ''); } catch(e) {}
     })();
 
     // Flag handler — one flag per device
