@@ -365,6 +365,7 @@ body::after {
   color: #b84a4a;
   text-decoration: none;
   opacity: 0.8;
+  text-transform: lowercase;
 }
 .note-del:hover {
   opacity: 1;

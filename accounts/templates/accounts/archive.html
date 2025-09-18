@@ -24,6 +24,12 @@
             <span class="dot">•</span>
             <span class="views" data-views>{{ note.views }}{% if note.views == 1 %} witness{% else %} witnessed{% endif %}</span>
             {% if note.flags %}<span class="dot">•</span><span>{{ note.flags }} flag{{ note.flags|pluralize }}</span>{% endif %}
+            {% if request.user.is_authenticated and note.user and request.user == note.user %}
+              <span class="del-wrap">
+                <span class="dot">•</span>
+                <a href="#" class="note-del" data-note-id="{{ note.id }}" title="Delete this note" aria-label="Delete">del</a>
+              </span>
+            {% endif %}
           </footer>
         </article>
       {% endfor %}
@@ -32,4 +38,35 @@
     <p class="empty">No notes yet.</p>
   {% endif %}
 {% endblock %}
-{% block scripts %}{{ block.super }}<link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">{% endblock %}
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    (function(){
+      document.querySelectorAll('.note-del[data-note-id]').forEach(link => {
+        link.addEventListener('click', function(e){
+          e.preventDefault();
+          const noteId = this.getAttribute('data-note-id');
+          if(!noteId) return;
+          if(!confirm('Delete this note? This cannot be undone.')) return;
+          fetch('{% url "delete_note" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrfToken() },
+            // no need to send device id because only signed in user can delete this (only signed in users have an archive page)
+            body: new URLSearchParams({ note_id: noteId, device_id: "dummy" })
+          }).then(r => r.json())
+            .then(data => {
+              if(data.ok){
+                window.location.reload();
+              } else {
+                alert(data.message || 'Failed to delete.');
+              }
+            }).catch(()=> alert('Failed to delete.'));
+        });
+      });
+      function getCsrfToken(){
+        const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : '';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
+{% endblock %}
