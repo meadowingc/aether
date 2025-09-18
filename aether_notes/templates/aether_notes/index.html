@@ -61,7 +61,12 @@
   {% if latest_note_list %}
     <section id="soup" class="soup">
       {% for note in latest_note_list %}
-        <article class="note-card" data-note-id="{{ note.id }}" data-created-by="{{ note.created_device_id|default:'' }}" style="opacity: {{ note.opacity|default:1 }};">
+        <article 
+            class="note-card" 
+            data-note-id="{{ note.id }}" 
+            data-created-by="{{ note.created_device_id|default:'' }}" 
+            data-created-by-user="{{ note.user.username|default:'' }}"
+            style="opacity: {{ note.opacity|default:1 }};" >
           <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
           <footer class="note-meta">
             {% if note.user %}
@@ -516,9 +521,12 @@
         // Show delete link only on owned notes
         const myId = getDeviceId();
         document.querySelectorAll('.note-card').forEach(card => {
-          const owner = card.getAttribute('data-created-by') || '';
+          // username takes precedence if user is currently logged in
+          const currentUsername = {% if request.user.is_authenticated %}"{{ request.user.username }}"{% else %}undefined{% endif %};
+          const ownerUsername = card.getAttribute('data-created-by-user') || '';
+          const ownerDeviceId = card.getAttribute('data-created-by') || '';
           const wrap = card.querySelector('.del-wrap');
-          if (wrap && owner && owner === myId) {
+          if (wrap && (ownerUsername && ownerUsername === currentUsername) || (ownerDeviceId && ownerDeviceId === myId)) {
             wrap.style.display = '';
           }
         });

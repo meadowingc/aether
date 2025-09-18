@@ -115,6 +115,8 @@ def create_note(request):
             # (left as-is; post_* already record failures and only on success we could choose to clear)
         except Exception:  # pragma: no cover - defensive wrapper
             pass
+    
+    return redirect(reverse("index"))
 
 
 def about(request):
