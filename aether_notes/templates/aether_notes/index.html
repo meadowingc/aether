@@ -544,7 +544,7 @@
             if (data && data.ok) {
               card.remove();
             } else if (data && data.error === 'forbidden') {
-              alert('Only the device that created this note can delete it.');
+              alert(data.message);
             } else if (data && data.error === 'not_found') {
               card.remove();
             } else {

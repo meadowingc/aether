@@ -45,76 +45,76 @@ def index(request):
 
 @rate_limited("create_note", limit=2, window_seconds=60)
 def create_note(request):
-    if request.method == "POST":
-        text = (request.POST.get("text") or "").strip()
-        if not text:
-            return redirect(reverse("index"))
+    if request.method != "POST":
+        return redirect(reverse("index"))
 
-        created_device_id = (request.POST.get("device_id") or "").strip() or None
+    text = (request.POST.get("text") or "").strip()
+    if not text:
+        return redirect(reverse("index"))
 
-        if request.user.is_authenticated:
-            # Authenticated: ignore provided author, bind to user
-            author = request.user.username
-            user = request.user
-        else:
-            raw_author = (request.POST.get("author") or "").strip()
-            author = raw_author or "anonymous"
-            user = None
-            # Reject reserved usernames (registered accounts)
-            if raw_author:
-                User = get_user_model()
-                if User.objects.filter(username__iexact=raw_author).exists():
-                    messages.error(request, "Reserved username. Sign in to use it.")
-                    return redirect(reverse("index"))
+    created_device_id = (request.POST.get("device_id") or "").strip() or None
 
-        # validate
-        if len(author) > Note._meta.get_field("author").max_length:
-            return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
+    if request.user.is_authenticated:
+        # Authenticated: ignore provided author, bind to user
+        author = request.user.username
+        user = request.user
+    else:
+        raw_author = (request.POST.get("author") or "").strip()
+        author = raw_author or "anonymous"
+        user = None
+        # Reject reserved usernames (registered accounts)
+        if raw_author:
+            User = get_user_model()
+            if User.objects.filter(username__iexact=raw_author).exists():
+                messages.error(request, "Reserved username. Sign in to use it.")
+                return redirect(reverse("index"))
 
-        if len(text) > 200:
-            return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
+    # validate
+    if len(author) > Note._meta.get_field("author").max_length:
+        return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
 
-        new_note = Note(
-            text=text,
-            author=author,
-            user=user,
-            pub_date=timezone.now(),
-            created_device_id=created_device_id,
-        )
-        new_note.save()
+    if len(text) > 200:
+        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
 
-        # Cross-post (synchronous) if user opted in globally and selected per-note
-        if request.user.is_authenticated and user and hasattr(user, "profile"):
-            prof = user.profile
-            # Presence of checkbox name indicates user wants this note posted there (unchecked => absent)
-            want_masto = bool(request.POST.get("xp_mastodon"))
-            want_bsky = bool(request.POST.get("xp_bluesky"))
-            want_status_cafe = bool(request.POST.get("xp_status_cafe"))
-            status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip()
+    new_note = Note(
+        text=text,
+        author=author,
+        user=user,
+        pub_date=timezone.now(),
+        created_device_id=created_device_id,
+    )
+    new_note.save()
 
-            # Only attempt network if globally enabled & user selected it.
-            try:
-                if want_masto and prof.crosspost_mastodon:
-                    try:
-                        post_mastodon(prof, new_note.text)
-                    except Exception:
-                        pass
-                if want_bsky and prof.crosspost_bluesky:
-                    try:
-                        post_bluesky(prof, new_note.text)
-                    except Exception:
-                        pass
-                if want_status_cafe and getattr(prof, "crosspost_status_cafe", False):
-                    try:
-                        post_status_cafe(prof, new_note.text, face=status_cafe_face or None)
-                    except Exception:
-                        pass
-                # If neither produced/retained an error and there was a previous error, we could clear
-                # (left as-is; post_* already record failures and only on success we could choose to clear)
-            except Exception:  # pragma: no cover - defensive wrapper
-                pass
+    # Cross-post (synchronous) if user opted in globally and selected per-note
+    if request.user.is_authenticated and user and hasattr(user, "profile"):
+        prof = user.profile
+        # Presence of checkbox name indicates user wants this note posted there (unchecked => absent)
+        want_masto = bool(request.POST.get("xp_mastodon"))
+        want_bsky = bool(request.POST.get("xp_bluesky"))
+        want_status_cafe = bool(request.POST.get("xp_status_cafe"))
+        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip()
 
-    return redirect(reverse("index"))
+        # Only attempt network if globally enabled & user selected it.
+        try:
+            if want_masto and prof.crosspost_mastodon:
+                try:
+                    post_mastodon(prof, new_note.text)
+                except Exception:
+                    pass
+            if want_bsky and prof.crosspost_bluesky:
+                try:
+                    post_bluesky(prof, new_note.text)
+                except Exception:
+                    pass
+            if want_status_cafe and getattr(prof, "crosspost_status_cafe", False):
+                try:
+                    post_status_cafe(prof, new_note.text, face=status_cafe_face or None)
+                except Exception:
+                    pass
+            # If neither produced/retained an error and there was a previous error, we could clear
+            # (left as-is; post_* already record failures and only on success we could choose to clear)
+        except Exception:  # pragma: no cover - defensive wrapper
+            pass
 
 
 def about(request):
@@ -177,8 +177,29 @@ def delete_note(request):
     except Note.DoesNotExist:
         return JsonResponse({"ok": False, "error": "not_found"}, status=404)
 
-    if not note.created_device_id or note.created_device_id != device_id:
-        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+    # if the note belongs to a user then only that user can delete it
+    if note.user is not None:
+        if not request.user.is_authenticated or request.user != note.user:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "forbidden",
+                    "message": f"You don't own this note so can't delete it. Only '{note.user.username}' can.",
+                },
+                status=403,
+            )
+
+    else:
+        # if the note is anonymous, only the device that created it can delete it
+        if not note.created_device_id or note.created_device_id != device_id:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "forbidden",
+                    "message": "Only the device that created this note can delete it.",
+                },
+                status=403,
+            )
 
     note.delete()
     return JsonResponse({"ok": True})
