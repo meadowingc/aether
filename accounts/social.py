@@ -1,6 +1,7 @@
 from __future__ import annotations
+import re
 import threading
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from .models import Profile
 
@@ -8,6 +9,8 @@ MASTODON_FALLBACK_LIMIT = (
     2000  # default; overridden per-user via Profile.mastodon_char_limit
 )
 BLUESKY_LIMIT = 300
+
+URL_RE = re.compile(r"https?://[\w\-._~%:/?#@!$&'()*+,;=]+", re.IGNORECASE)
 STATUS_CAFE_LIMIT = 140
 
 
@@ -52,6 +55,51 @@ def post_mastodon(profile: Profile, text: str) -> Tuple[bool, str | None, str | 
         return False, None, None
 
 
+def _build_bluesky_facets_with_richtext(text: str):  # pragma: no cover (depends on atproto internals)
+    """Attempt to use atproto.RichText to auto-detect facets.
+
+    Returns (processed_text, facets) or (text, None) on failure.
+    """
+    try:  # type: ignore
+        from atproto import RichText  # type: ignore
+
+        rt = RichText(text)
+        rt.detect_facets()
+        return rt.text, rt.facets or None
+    except Exception:  # noqa: BLE001
+        return text, None
+
+
+def _build_bluesky_facets_manual(text: str):
+    """Manual (minimal) facet construction for links if RichText helper unavailable.
+
+    Bluesky's spec requires UTF-16 code unit offsets. Python's internal indexing is
+    code point based, so we convert slices to UTF-16 lengths via encode('utf-16-le').
+    This is a simplified approach and may miss certain edge cases, but is acceptable
+    as a fallback.
+    """
+    facets: List[dict] = []
+    for m in URL_RE.finditer(text):
+        url = m.group(0)
+        start_cp = m.start()
+        end_cp = m.end()
+        # Compute UTF-16 code unit offsets (excluding BOM) by encoding substrings
+        prefix_utf16_len = len(text[:start_cp].encode("utf-16-le")) // 2
+        match_utf16_len = len(text[start_cp:end_cp].encode("utf-16-le")) // 2
+        facets.append(
+            {
+                "index": {"byteStart": prefix_utf16_len, "byteEnd": prefix_utf16_len + match_utf16_len},
+                "features": [
+                    {"$type": "app.bsky.richtext.facet#link", "uri": url},
+                ],
+            }
+        )
+    return facets or None
+
+
+## Link preview & thumbnail helpers removed as per request (keep code minimal)
+
+
 def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | None]:
     handle = profile.bluesky_handle or ""
     app_pw = profile.bluesky_app_password or ""
@@ -60,9 +108,33 @@ def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | N
     try:
         from atproto import Client  # type: ignore
 
+        # Truncate first to avoid slicing after facet indices prepared.
+        truncated = _truncate(text, BLUESKY_LIMIT)
+
+        processed_text, facets = _build_bluesky_facets_with_richtext(truncated)
+        if facets is None:
+            facets = _build_bluesky_facets_manual(processed_text)
+
+        first_url = None
+        if facets:
+            # Extract first link url from facets
+            for fac in facets:
+                for feat in fac.get("features", []):
+                    if feat.get("$type") == "app.bsky.richtext.facet#link":
+                        first_url = feat.get("uri")
+                        break
+                if first_url:
+                    break
+
         client = Client()
         client.login(handle, app_pw)
-        post = client.send_post(text=_truncate(text, BLUESKY_LIMIT))
+        # send_post supports facets & embed when provided
+        kwargs = {"text": processed_text}
+        if facets:
+            kwargs["facets"] = facets
+
+        # No external embed; links appear via facets only.
+        post = client.send_post(**kwargs)  # type: ignore[arg-type]
         uri = getattr(post, "uri", None)
         remote_url = None
         if isinstance(uri, str):
