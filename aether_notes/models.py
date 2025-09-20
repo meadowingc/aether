@@ -56,3 +56,52 @@ class NoteFlag(models.Model):
         indexes = [
             models.Index(fields=["device_id", "created_at"]),
         ]
+
+
+class NoteCrosspost(models.Model):
+    """Stores metadata about a note cross-posted to an external network.
+
+    We persist enough information to render a link later even if the user changes
+    their instance / handle. Status is simple for now (success/error) and can be
+    expanded with retry metadata later.
+    """
+    NETWORK_CHOICES = [
+        ("mastodon", "Mastodon"),
+        ("bluesky", "Bluesky"),
+    ]
+
+    note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name="crossposts")
+    network = models.CharField(max_length=20, choices=NETWORK_CHOICES)
+    remote_id = models.CharField(max_length=200, blank=True)  # e.g. status ID or URI
+    remote_url = models.URLField(max_length=500, blank=True)  # canonical URL to view
+    # Legacy fields (status/error) retained; now a row's existence implies success.
+    status = models.CharField(max_length=20, default="success", db_index=True)
+    error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["note", "network"], name="unique_note_network_crosspost"),
+        ]
+        indexes = [
+            models.Index(fields=["network", "status"]),
+        ]
+
+    def mark_success(self, remote_id: str | None = None, remote_url: str | None = None):  # pragma: no cover - trivial
+        if remote_id:
+            self.remote_id = remote_id
+        if remote_url:
+            self.remote_url = remote_url
+        self.status = "success"
+        self.error = ""
+        self.save(update_fields=["remote_id", "remote_url", "status", "error", "updated_at"])
+
+    def mark_error(self, message: str):  # retained for backward compatibility (unused now)
+        self.status = "error"
+        self.error = (message or "")[:300]
+        self.save(update_fields=["status", "error", "updated_at"])
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        nid = getattr(self.note, 'id', None)
+        return f"NoteCrosspost(note={nid}, network={self.network}, status={self.status})"

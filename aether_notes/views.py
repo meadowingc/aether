@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from accounts.utils import rate_limited
-from accounts.social import post_mastodon, post_bluesky, post_status_cafe
+from accounts.social import post_selected_networks_async
 
 from .models import Note, NoteFlag, NoteView
 
@@ -20,7 +20,7 @@ from .models import Note, NoteFlag, NoteView
 def index(request):
     now = timezone.now()
     cutoff = now - datetime.timedelta(days=2)
-    qs = Note.objects.filter(pub_date__gte=cutoff).order_by("-pub_date")
+    qs = Note.objects.filter(pub_date__gte=cutoff).order_by("-pub_date").prefetch_related("crossposts")
     notes = list(qs[:200])
 
     # Attach display metadata for fading and expiry labels
@@ -85,37 +85,29 @@ def create_note(request):
     )
     new_note.save()
 
-    # Cross-post (synchronous) if user opted in globally and selected per-note
+    # Cross-post asynchronously (fire-and-forget)
     if request.user.is_authenticated and user and hasattr(user, "profile"):
         prof = user.profile
-        # Presence of checkbox name indicates user wants this note posted there (unchecked => absent)
         want_masto = bool(request.POST.get("xp_mastodon"))
         want_bsky = bool(request.POST.get("xp_bluesky"))
         want_status_cafe = bool(request.POST.get("xp_status_cafe"))
-        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip()
+        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip() or None
 
-        # Only attempt network if globally enabled & user selected it.
-        try:
-            if want_masto and prof.crosspost_mastodon:
-                try:
-                    post_mastodon(prof, new_note.text)
-                except Exception:
-                    pass
-            if want_bsky and prof.crosspost_bluesky:
-                try:
-                    post_bluesky(prof, new_note.text)
-                except Exception:
-                    pass
-            if want_status_cafe and getattr(prof, "crosspost_status_cafe", False):
-                try:
-                    post_status_cafe(prof, new_note.text, face=status_cafe_face or None)
-                except Exception:
-                    pass
-            # If neither produced/retained an error and there was a previous error, we could clear
-            # (left as-is; post_* already record failures and only on success we could choose to clear)
-        except Exception:  # pragma: no cover - defensive wrapper
-            pass
-    
+        if any([want_masto, want_bsky, want_status_cafe]):
+            try:
+                post_selected_networks_async(
+                    prof,
+                    new_note.text,
+                    want_masto=want_masto,
+                    want_bluesky=want_bsky,
+                    want_status_cafe=want_status_cafe,
+                    status_cafe_face=status_cafe_face,
+                    note=new_note,
+                )
+                messages.info(request, "Cross-posting in the background – your note was created instantly.")
+            except Exception:  # pragma: no cover - defensive
+                pass
+
     return redirect(reverse("index"))
 
 

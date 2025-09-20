@@ -357,8 +357,36 @@ body::after {
   opacity: 0.5;
 }
 
-.note-meta a.author {
+.note-meta a.author,
+.note-meta a.xp-link {
   color: var(--accent);
+}
+
+.note-meta .xp-links {
+  display: block;
+}
+
+/* Crosspost links on their own row below meta */
+.xp-row {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  font-style: italic;
+  flex-wrap: wrap;
+  padding-left: 2px;
+}
+.xp-row .xp {
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+.xp-row .xp:hover,
+.xp-row .xp:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+  outline: none;
 }
 
 .note-del {
@@ -449,4 +477,13 @@ body::after {
   font-style: italic;
   font-size: 18px;
   line-height: 1.6;
+}
+
+.profile-header .website {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
+.profile-header .website a {
+  color: var(--accent);
 }

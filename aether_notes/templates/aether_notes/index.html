@@ -61,10 +61,10 @@
   {% if latest_note_list %}
     <section id="soup" class="soup">
       {% for note in latest_note_list %}
-        <article 
-            class="note-card" 
-            data-note-id="{{ note.id }}" 
-            data-created-by="{{ note.created_device_id|default:'' }}" 
+        <article
+            class="note-card"
+            data-note-id="{{ note.id }}"
+            data-created-by="{{ note.created_device_id|default:'' }}"
             data-created-by-user="{{ note.user.username|default:'' }}"
             style="opacity: {{ note.opacity|default:1 }};" >
           <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
@@ -91,6 +91,17 @@
             <span class="dot">•</span>
             <button type="button" class="flag-btn" aria-label="Flag this note as inappropriate" title="Flag this note as inappropriate">⚑</button>
           </footer>
+          {% with cps=note.crossposts.all %}
+            {% if cps %}
+              <div class="xp-row">
+                X-Posted to:
+                {% for cp in cps %}
+                  {% if cp.network == 'mastodon' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-mstn" target="_blank" rel="noopener" title="View on Mastodon">(mstn)</a>{% endif %}
+                  {% if cp.network == 'bluesky' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-bsky" target="_blank" rel="noopener" title="View on Bluesky">(bsky)</a>{% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
         </article>
       {% endfor %}
     </section>

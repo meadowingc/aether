@@ -18,7 +18,7 @@
     <section class="archive-list">
       {% for note in notes %}
         <article class="note-archive">
-          <div class="text">{{ note.text|urlize|linebreaksbr }}</div>
+          <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
           <footer class="meta">
             <time datetime="{{ note.pub_date|date:'c' }}">{{ note.pub_date|date:'Y-m-d H:i' }}</time>
             <span class="dot">•</span>
@@ -31,6 +31,17 @@
               </span>
             {% endif %}
           </footer>
+          {% with cps=note.crossposts.all %}
+            {% if cps %}
+              <div class="xp-row">
+                X-Posted to:
+                {% for cp in cps %}
+                  {% if cp.network == 'mastodon' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-mstn" target="_blank" rel="noopener" title="View on Mastodon">(mstn)</a>{% endif %}
+                  {% if cp.network == 'bluesky' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-bsky" target="_blank" rel="noopener" title="View on Bluesky">(bsky)</a>{% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
         </article>
       {% endfor %}
     </section>
