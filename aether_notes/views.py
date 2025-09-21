@@ -104,7 +104,6 @@ def create_note(request):
                     status_cafe_face=status_cafe_face,
                     note=new_note,
                 )
-                messages.info(request, "Cross-posting in the background – your note was created instantly.")
             except Exception:  # pragma: no cover - defensive
                 pass
 
