@@ -1,4 +1,6 @@
 {% extends "aether_notes/base.html" %}
+{% load static %}
+
 {% block title %}Edit Draft{% endblock %}
 
 {% block content %}
@@ -8,3 +10,7 @@
     <p class="hint ok">Draft saved.</p>
   {% endif %}
 {% endblock %}
+
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
+{% endblock scripts %}

@@ -176,5 +176,6 @@ AUTH_LOGIN_RATE_LIMIT = {"limit": 5, "window": 60}       # 5 login POSTs / 60s /
 AUTH_CREATE_NOTE_LIMIT = {"limit": 2, "window": 60}      # already enforced via decorator
 AUTH_REGISTER_RATE_LIMIT = {"limit": 5, "window": 60}    # decorator on register view
 
+SESSION_COOKIE_DOMAIN = "aether.meadow.cafe"
 
 ADMIN_ENABLED = os.getenv("DJANGO_ADMIN_ENABLED", "True") == "True"

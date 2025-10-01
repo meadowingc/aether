@@ -40,6 +40,19 @@
         >
           🌙
         </button>
+
+        <!-- Mobile menu toggle (shown on narrow viewports) -->
+        <button
+          id="nav_toggle"
+          class="nav-toggle"
+          aria-label="Open menu"
+          aria-controls="nav_menu"
+          aria-expanded="false"
+          title="Menu"
+        >☰</button>
+
+        <!-- Inline header links (shown on wider viewports) -->
+        <nav class="header-links" role="navigation" aria-label="Header links">
         {% if request.user.is_authenticated %}
           {% if request.user.profile.show_archive %}
             <a class="user-pill" href="{% url 'accounts:user_archive' request.user.username %}">👤 {{ request.user.username }}</a>
@@ -54,6 +67,27 @@
           <a class="about-link" href="{% url 'two_factor:login' %}">Login</a>
           <a class="about-link" href="{% url 'accounts:register' %}">Register</a>
         {% endif %}
+        </nav>
+
+        <!-- Collapsed mobile menu (duplicated links for small viewports) -->
+        <div id="nav_menu" class="mobile-menu" hidden aria-hidden="true">
+          <div class="mobile-menu-inner">
+          {% if request.user.is_authenticated %}
+            {% if request.user.profile.show_archive %}
+              <a class="mobile-user" href="{% url 'accounts:user_archive' request.user.username %}">👤 {{ request.user.username }}</a>
+            {% else %}
+              <span class="mobile-user">👤 {{ request.user.username }}</span>
+            {% endif %}
+            <a class="mobile-link" href="{% url 'drafts_list' %}">Drafts</a>
+            <a class="mobile-link" href="{% url 'accounts:settings' %}">Settings</a>
+            <a class="mobile-link" href="{% url 'logout' %}">Logout</a>
+          {% else %}
+            <a class="mobile-link" href="{% url 'about' %}">About</a>
+            <a class="mobile-link" href="{% url 'two_factor:login' %}">Login</a>
+            <a class="mobile-link" href="{% url 'accounts:register' %}">Register</a>
+          {% endif %}
+          </div>
+        </div>
       </div>
     </header>
 
@@ -85,6 +119,47 @@
         setTheme(current());
         btn.addEventListener("click", function () {
           setTheme(current() === "dark" ? "light" : "dark");
+        });
+      })();
+
+      // Mobile header menu toggle
+      (function() {
+        const toggle = document.getElementById('nav_toggle');
+        const menu = document.getElementById('nav_menu');
+
+        if (!toggle || !menu) return;
+
+        function openMenu() {
+          toggle.setAttribute('aria-expanded', 'true');
+          menu.hidden = false;
+          menu.setAttribute('aria-hidden', 'false');
+          // focus first link inside menu for a11y
+          const f = menu.querySelector('a, button, [tabindex]:not([tabindex="-1"])');
+          if (f) f.focus();
+          document.addEventListener('keydown', onKey);
+          document.addEventListener('click', onDocClick, true);
+        }
+        function closeMenu(returnFocus=true) {
+          toggle.setAttribute('aria-expanded', 'false');
+          menu.hidden = true;
+          menu.setAttribute('aria-hidden', 'true');
+          if (returnFocus) toggle.focus();
+          document.removeEventListener('keydown', onKey);
+          document.removeEventListener('click', onDocClick, true);
+        }
+
+        function onKey(e) {
+          if (e.key === 'Escape') closeMenu();
+        }
+        function onDocClick(e) {
+          if (menu.contains(e.target) || e.target === toggle) return;
+          closeMenu(false);
+        }
+
+        toggle.addEventListener('click', function(e) {
+          const expanded = toggle.getAttribute('aria-expanded') === 'true';
+          if (expanded) closeMenu();
+          else openMenu();
         });
       })();
     </script>
