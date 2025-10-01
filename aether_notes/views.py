@@ -95,7 +95,7 @@ def edit_draft(request, pk):
 def index(request):
     now = timezone.now()
     cutoff = now - datetime.timedelta(days=2)
-    qs = Note.objects.filter(pub_date__gte=cutoff).order_by("-pub_date").prefetch_related("crossposts")
+    qs = Note.objects.filter(pub_date__gte=cutoff, is_draft=False).order_by("-pub_date").prefetch_related("crossposts")
     notes = list(qs[:200])
 
     # Attach display metadata for fading and expiry labels
