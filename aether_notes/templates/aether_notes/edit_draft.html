@@ -1,0 +1,20 @@
+{% extends "aether_notes/base.html" %}
+{% block title %}Edit Draft{% endblock %}
+
+{% block content %}
+  <h2>Edit Draft</h2>
+  {% include "aether_notes/_note_form.html" with
+    form_action=request.path
+    note_text=draft.text
+    submit_label="Throw"
+    show_save_draft=False
+    is_edit=True
+    errors=error|default_if_none:""
+    device_id=draft.created_device_id
+    user=request.user
+    profile=request.user.profile|default_if_none:""
+  %}
+  {% if saved %}
+    <p class="hint ok">Draft saved.</p>
+  {% endif %}
+{% endblock %}

@@ -18,6 +18,9 @@ class Note(models.Model):
     flags = models.PositiveIntegerField(default=0)
     # Device that created the note (client-generated UUID). Used for delete authorization.
     created_device_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    # Draft support
+    is_draft = models.BooleanField(default=False, db_index=True)
+    last_modified = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
         return self.text

@@ -1,0 +1,18 @@
+{% extends "aether_notes/base.html" %}
+{% block title %}Drafts{% endblock %}
+
+{% block content %}
+  <h2>Your Drafts</h2>
+  {% if drafts %}
+    <ul class="draft-list">
+      {% for draft in drafts %}
+        <li>
+          <a href="{% url 'edit_draft' draft.pk %}">{{ draft.text|truncatechars:60 }}</a>
+          <span class="draft-date">{{ draft.last_modified|date:"Y-m-d H:i" }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">You have no drafts.</p>
+  {% endif %}
+{% endblock %}

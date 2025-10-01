@@ -4,59 +4,8 @@
 {% block title %}Aether{% endblock %}
 
 {% block content %}
-  <form class="note-form" action="{% url 'create_note' %}" method="post">
-    {% csrf_token %}
-    <label class="sr-only" for="note_text">New Note</label>
-    <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required></textarea>
-    <div class="counter-row">
-      <span id="note_counter" class="char-counter">0/2000</span>
-      {% if request.user.is_authenticated and request.user.profile %}
-        {% with p=request.user.profile %}
-          <div class="network-counters">
-            {% if p.crosspost_mastodon and p.mastodon_instance and p.mastodon_token %}
-              <label class="net-toggle">
-                <input type="checkbox" name="xp_mastodon" id="xp_mastodon" checked>
-                <span>Mastodon</span>
-                <span id="mastodon_counter" class="char-counter small" data-limit="{{ p.mastodon_char_limit|default:2000 }}">0/{{ p.mastodon_char_limit|default:2000 }}</span>
-              </label>
-            {% endif %}
-            {% if p.crosspost_bluesky and p.bluesky_handle and p.bluesky_app_password %}
-              <label class="net-toggle">
-                <input type="checkbox" name="xp_bluesky" id="xp_bluesky" checked>
-                <span>Bluesky</span>
-                <span id="bluesky_counter" class="char-counter small" data-limit="300">0/300</span>
-              </label>
-            {% endif %}
-            {% if p.crosspost_status_cafe and p.status_cafe_username and p.status_cafe_password %}
-              <label class="net-toggle">
-                <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
-                <span>Status.cafe</span>
-                <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
-                <span class="face-picker-wrap" style="display:inline-flex; align-items:center; gap:4px;">
-                  <input type="hidden" name="xp_status_cafe_face" id="xp_status_cafe_face" value="">
-                  <button type="button" id="face_display_btn" class="face-emoji-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="face_picker_popup" title="Pick an emoji" data-default="🙂">🙂</button>
-                </span>
-              </label>
-            {% endif %}
-          </div>
-        {% endwith %}
-      {% endif %}
-    </div>
-    <div class="form-row">
-      {% if not request.user.is_authenticated %}
-      <label class="sr-only" for="note_author">Author (optional)</label>
-      <input type="text" id="note_author" name="author" placeholder="Your name (optional)" maxlength="25" autocomplete="off" aria-describedby="author_status">
-      <span id="author_status" class="hint" role="alert" style="margin-left:.5rem;"></span>
-      <input type="hidden" id="note_device_id" name="device_id" value="">
-      <label class="remember"><input type="checkbox" id="remember_author"> Remember</label>
-      {% else %}
-      <input type="hidden" id="note_device_id" name="device_id" value="">
-      <p class="hint">Posting as <strong>{{ request.user.username }}</strong></p>
-      {% endif %}
-      <button type="submit">Throw</button>
-    </div>
-    <p class="hint">Public for ~48 hours. Please avoid personal info.</p>
-  </form>
+  {% url 'create_note' as form_action %}
+  {% include "aether_notes/_note_form.html" with form_action=form_action note_text="" submit_label="Throw" show_save_draft=request.user.is_authenticated is_edit=False errors=None device_id="" user=request.user profile=request.user.profile|default_if_none:"" %}
 
   {% if latest_note_list %}
     <section id="soup" class="soup">

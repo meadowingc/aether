@@ -14,9 +14,45 @@ from accounts.utils import rate_limited
 from accounts.social import post_selected_networks_async
 
 from .models import Note, NoteFlag, NoteView
+from django.contrib.auth.decorators import login_required
+from django.http import Http404
 
 
 # Create your views here.
+
+@login_required
+def drafts_list(request):
+    """List drafts for the authenticated user."""
+    drafts = Note.objects.filter(user=request.user, is_draft=True).order_by("-last_modified")
+    return render(request, "aether_notes/drafts.html", {"drafts": drafts})
+
+@login_required
+def edit_draft(request, pk):
+    """Edit or publish a draft."""
+    try:
+        draft = Note.objects.get(pk=pk, user=request.user, is_draft=True)
+    except Note.DoesNotExist:
+        raise Http404("Draft not found")
+
+    if request.method == "POST":
+        text = (request.POST.get("text") or "").strip()
+        if not text:
+            return render(request, "aether_notes/edit_draft.html", {"draft": draft, "error": "Text cannot be empty."})
+
+        draft.text = text
+        draft.last_modified = timezone.now()
+
+        if "throw" in request.POST:
+            draft.is_draft = False
+            draft.pub_date = timezone.now()
+            draft.save()
+            return redirect("index")
+        else:
+            draft.save()
+            return render(request, "aether_notes/edit_draft.html", {"draft": draft, "saved": True})
+
+    return render(request, "aether_notes/edit_draft.html", {"draft": draft})
+
 def index(request):
     now = timezone.now()
     cutoff = now - datetime.timedelta(days=2)
@@ -45,6 +81,7 @@ def index(request):
 
 @rate_limited("create_note", limit=2, window_seconds=60)
 def create_note(request):
+    print("DEBUG: create_note view called, method =", request.method)
     if request.method != "POST":
         return redirect(reverse("index"))
 
@@ -53,6 +90,9 @@ def create_note(request):
         return redirect(reverse("index"))
 
     created_device_id = (request.POST.get("device_id") or "").strip() or None
+
+    # Check if saving as draft
+    save_as_draft = "save_draft" in request.POST
 
     if request.user.is_authenticated:
         # Authenticated: ignore provided author, bind to user
@@ -75,6 +115,18 @@ def create_note(request):
 
     if len(text) > 200:
         return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
+
+    if save_as_draft and request.user.is_authenticated:
+        new_note = Note(
+            text=text,
+            author=author,
+            user=user,
+            pub_date=timezone.now(),
+            created_device_id=created_device_id,
+            is_draft=True,
+        )
+        new_note.save()
+        return redirect("drafts_list")
 
     new_note = Note(
         text=text,

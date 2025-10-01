@@ -9,4 +9,6 @@ urlpatterns = [
     path("witness/", views.witness, name="witness"),
     path("flag-note/", views.flag_note, name="flag_note"),
     path("delete-note/", views.delete_note, name="delete_note"),
+    path("drafts/", views.drafts_list, name="drafts_list"),
+    path("drafts/<int:pk>/edit/", views.edit_draft, name="edit_draft"),
 ]
