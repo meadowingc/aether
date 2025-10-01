@@ -31,4 +31,4 @@ pull:
 	git pull
 
 serve: pull migrate collectstatic
-	DJANGO_ADMIN_ENABLED=False DJANGO_PROD=True gunicorn aether.wsgi -c gunicorn_config.py
+	DJANGO_ADMIN_ENABLED=False DJANGO_PROD=True uv run gunicorn aether.wsgi -c gunicorn_config.py
