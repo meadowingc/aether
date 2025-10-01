@@ -1,4 +1,4 @@
-bind = "127.0.0.1:4287"
+bind = "127.0.0.1:34782"
 workers = 1
 threads = 8
 timeout = 60

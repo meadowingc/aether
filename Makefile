@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 .PHONY: dev migrate format makemigrations check shell create-admin collectstatic serve pull
 
 dev:
-	DJANGO_ADMIN_ENABLED=True uv run manage.py runserver
+	DJANGO_ADMIN_ENABLED=True uv run manage.py runserver 127.0.0.1:34782
 
 migrate:
 	uv run manage.py migrate

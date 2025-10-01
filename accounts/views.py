@@ -329,7 +329,7 @@ def user_archive(request: HttpRequest, username: str) -> HttpResponse:
         return render(request, "404.html", status=404)
 
     # Fetch latest 200 notes authored by this user (persist even if beyond feed window)
-    notes = Note.objects.filter(user=user).order_by("-pub_date")[:200]
+    notes = Note.objects.filter(user=user, is_draft=False).order_by("-pub_date")[:200]
     profile: Profile = user.profile  # type: ignore[attr-defined]
 
     # Markdown rendering (safe subset) for bio
