@@ -20,6 +20,47 @@ from django.http import Http404
 
 # Create your views here.
 
+def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
+    """
+    Shared helper to save a note and, when publishing, enqueue cross-posting.
+    - note: Note instance (may be unsaved)
+    - text: new text value
+    - user: request.user or None
+    - request: HttpRequest (for POST flags)
+    - as_draft: True to keep as draft, False to publish
+    """
+    note.text = text
+    if as_draft:
+        note.is_draft = True
+        # keep existing pub_date if any
+    else:
+        note.is_draft = False
+        note.pub_date = timezone.now()
+    note.save()
+
+    # When publishing, mirror create_note's crosspost behavior
+    if not as_draft and user and hasattr(user, "profile"):
+        prof = user.profile
+        want_masto = bool(request.POST.get("xp_mastodon"))
+        want_bsky = bool(request.POST.get("xp_bluesky"))
+        want_status_cafe = bool(request.POST.get("xp_status_cafe"))
+        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip() or None
+
+        if any([want_masto, want_bsky, want_status_cafe]):
+            try:
+                post_selected_networks_async(
+                    prof,
+                    note.text,
+                    want_masto=want_masto,
+                    want_bluesky=want_bsky,
+                    want_status_cafe=want_status_cafe,
+                    status_cafe_face=status_cafe_face,
+                    note=note,
+                )
+            except Exception:
+                # Defensive: don't let crosspost failures block the request
+                pass
+
 @login_required
 def drafts_list(request):
     """List drafts for the authenticated user."""
@@ -43,9 +84,7 @@ def edit_draft(request, pk):
         draft.last_modified = timezone.now()
 
         if "throw" in request.POST:
-            draft.is_draft = False
-            draft.pub_date = timezone.now()
-            draft.save()
+            _save_and_maybe_crosspost(draft, text, request.user, request, as_draft=False)
             return redirect("index")
         else:
             draft.save()
@@ -123,9 +162,8 @@ def create_note(request):
             user=user,
             pub_date=timezone.now(),
             created_device_id=created_device_id,
-            is_draft=True,
         )
-        new_note.save()
+        _save_and_maybe_crosspost(new_note, text, user, request, as_draft=True)
         return redirect("drafts_list")
 
     new_note = Note(
@@ -135,30 +173,7 @@ def create_note(request):
         pub_date=timezone.now(),
         created_device_id=created_device_id,
     )
-    new_note.save()
-
-    # Cross-post asynchronously (fire-and-forget)
-    if request.user.is_authenticated and user and hasattr(user, "profile"):
-        prof = user.profile
-        want_masto = bool(request.POST.get("xp_mastodon"))
-        want_bsky = bool(request.POST.get("xp_bluesky"))
-        want_status_cafe = bool(request.POST.get("xp_status_cafe"))
-        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip() or None
-
-        if any([want_masto, want_bsky, want_status_cafe]):
-            try:
-                post_selected_networks_async(
-                    prof,
-                    new_note.text,
-                    want_masto=want_masto,
-                    want_bluesky=want_bsky,
-                    want_status_cafe=want_status_cafe,
-                    status_cafe_face=status_cafe_face,
-                    note=new_note,
-                )
-            except Exception:  # pragma: no cover - defensive
-                pass
-
+    _save_and_maybe_crosspost(new_note, text, user, request, as_draft=False)
     return redirect(reverse("index"))
 
 
