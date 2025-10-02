@@ -152,9 +152,6 @@ def create_note(request):
     if len(author) > Note._meta.get_field("author").max_length:
         return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
 
-    if len(text) > 200:
-        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
-
     if save_as_draft and request.user.is_authenticated:
         new_note = Note(
             text=text,
