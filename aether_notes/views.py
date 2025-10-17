@@ -106,9 +106,13 @@ def index(request):
         # Map to opacity: newer -> 1.0, oldest (7 days) -> 0.4
         n.opacity = round(1.0 - 0.6 * ratio, 3)
         remaining = max(0, int(max_age - age))
-        hours = remaining // 3600
+        days = remaining // 86400
+        hours = (remaining % 86400) // 3600
         minutes = (remaining % 3600) // 60
-        n.expires_in = f"{hours}h {minutes}m"
+        if days > 0:
+            n.expires_in = f"{days}d {hours}h"
+        else:
+            n.expires_in = f"{hours}h {minutes}m"
 
     context = {
         "latest_note_list": notes,
