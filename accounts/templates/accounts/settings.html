@@ -18,7 +18,7 @@
       </div>
       <div class="field inline-toggle">
         <label for="id_show_archive">Public Archive Page</label>
-        <div class="toggle-row">{{ form.show_archive }} <span>Enable /u/{{ request.user.username }}/ page (all your notes, beyond 48h feed)</span></div>
+        <div class="toggle-row">{{ form.show_archive }} <span>Enable /u/{{ request.user.username }}/ page (all your notes, beyond 7-day feed)</span></div>
         {% if form.show_archive.help_text %}<p class="hint">{{ form.show_archive.help_text }}</p>{% endif %}
         {% if profile.show_archive %}
           <p class="hint small">Archive URL: <a href="{% url 'accounts:user_archive' request.user.username %}">/u/{{ request.user.username }}/</a></p>

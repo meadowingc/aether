@@ -94,16 +94,16 @@ def edit_draft(request, pk):
 
 def index(request):
     now = timezone.now()
-    cutoff = now - datetime.timedelta(days=2)
+    cutoff = now - datetime.timedelta(days=7)
     qs = Note.objects.filter(pub_date__gte=cutoff, is_draft=False).order_by("-pub_date").prefetch_related("crossposts")
     notes = list(qs[:200])
 
     # Attach display metadata for fading and expiry labels
-    max_age = 2 * 24 * 3600
+    max_age = 7 * 24 * 3600
     for n in notes:
         age = (now - n.pub_date).total_seconds()
         ratio = min(max(age / max_age, 0.0), 1.0)
-        # Map to opacity: newer -> 1.0, oldest (48h) -> 0.4
+        # Map to opacity: newer -> 1.0, oldest (7 days) -> 0.4
         n.opacity = round(1.0 - 0.6 * ratio, 3)
         remaining = max(0, int(max_age - age))
         hours = remaining // 3600

@@ -316,7 +316,7 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 def user_archive(request: HttpRequest, username: str) -> HttpResponse:
     """Public archive/profile page for a user if they opted in.
 
-    Shows all their notes (no 48h cutoff) newest first.
+    Shows all their notes (no 7-day cutoff) newest first.
     404 if user not found or archive disabled.
     """
     try:
