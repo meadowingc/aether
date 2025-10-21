@@ -219,7 +219,7 @@ def mastodon_oauth_start(request: HttpRequest) -> HttpResponse:
             r = httpx.post(
                 f"{instance}/api/v1/apps",
                 data={
-                    "client_name": "Aether Crossposter",
+                    "client_name": "Aether",
                     "redirect_uris": redirect_uri,
                     "scopes": "read write",
                     "website": "https://aether.meadow.cafe",
