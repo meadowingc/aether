@@ -178,4 +178,17 @@ AUTH_REGISTER_RATE_LIMIT = {"limit": 5, "window": 60}    # decorator on register
 
 SESSION_COOKIE_DOMAIN = "aether.meadow.cafe"
 
+# Distinct, host-scoped cookie names to avoid collisions with other subdomains.
+# (Configure the sibling app to use its own e.g. "hoarder_sessionid".)
+SESSION_COOKIE_NAME = "aether_sessionid"
+CSRF_COOKIE_NAME = "aether_csrftoken"
+
+# Secure cookie settings (assumes the site is only served over HTTPS in production).
+# If you need to test locally over plain HTTP, you can temporarily override these
+# via environment variables or condition on DEBUG.
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
 ADMIN_ENABLED = os.getenv("DJANGO_ADMIN_ENABLED", "True") == "True"
