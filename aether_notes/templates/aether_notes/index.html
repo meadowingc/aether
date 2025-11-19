@@ -92,9 +92,6 @@
                 // Fire-and-forget witness hit
                 fetch('{% url "witness" %}', {
                   method: 'POST',
-                  headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                  },
                   body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
                 }).then(r => r.ok ? r.json() : null).then(data => {
                   if (!data || !data.ok) return;
@@ -156,9 +153,6 @@
 
           fetch('{% url "delete_note" %}', {
             method: 'POST',
-            headers: {
-              'X-CSRFToken': getCookie('csrftoken')
-            },
             body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
           }).then(r => r.json().catch(() => ({}))).then(data => {
             if (data && data.ok) {
@@ -196,7 +190,6 @@
 
         fetch('{% url "flag_note" %}', {
           method: 'POST',
-          headers: { 'X-CSRFToken': getCookie('csrftoken') },
           body: new URLSearchParams({ note_id: String(id), device_id: getDeviceId() })
         }).then(r => r.json().catch(() => ({}))).then(data => {
           if (data && data.ok) {

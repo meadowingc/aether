@@ -61,7 +61,6 @@
           if(!confirm('Delete this note? This cannot be undone.')) return;
           fetch('{% url "delete_note" %}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrfToken() },
             // no need to send device id because only signed in user can delete this (only signed in users have an archive page)
             body: new URLSearchParams({ note_id: noteId, device_id: "dummy" })
           }).then(r => r.json())
@@ -74,9 +73,6 @@
             }).catch(()=> alert('Failed to delete.'));
         });
       });
-      function getCsrfToken(){
-        const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : '';
-      }
     })();
   </script>
   <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">

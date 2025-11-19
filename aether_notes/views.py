@@ -1,24 +1,24 @@
 import datetime
 
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.db.models import F
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from django.contrib.auth import get_user_model
-from django.contrib import messages
-from accounts.utils import rate_limited
 from accounts.social import post_selected_networks_async
+from accounts.utils import rate_limited
 
 from .models import Note, NoteFlag, NoteView
-from django.contrib.auth.decorators import login_required
-from django.http import Http404
-
 
 # Create your views here.
+
 
 def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
     """
@@ -44,7 +44,9 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
         want_masto = bool(request.POST.get("xp_mastodon"))
         want_bsky = bool(request.POST.get("xp_bluesky"))
         want_status_cafe = bool(request.POST.get("xp_status_cafe"))
-        status_cafe_face = (request.POST.get("xp_status_cafe_face") or "").strip() or None
+        status_cafe_face = (
+            request.POST.get("xp_status_cafe_face") or ""
+        ).strip() or None
 
         if any([want_masto, want_bsky, want_status_cafe]):
             try:
@@ -61,11 +63,15 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
                 # Defensive: don't let crosspost failures block the request
                 pass
 
+
 @login_required
 def drafts_list(request):
     """List drafts for the authenticated user."""
-    drafts = Note.objects.filter(user=request.user, is_draft=True).order_by("-last_modified")
+    drafts = Note.objects.filter(user=request.user, is_draft=True).order_by(
+        "-last_modified"
+    )
     return render(request, "aether_notes/drafts.html", {"drafts": drafts})
+
 
 @login_required
 def edit_draft(request, pk):
@@ -78,24 +84,37 @@ def edit_draft(request, pk):
     if request.method == "POST":
         text = (request.POST.get("text") or "").strip()
         if not text:
-            return render(request, "aether_notes/edit_draft.html", {"draft": draft, "error": "Text cannot be empty."})
+            return render(
+                request,
+                "aether_notes/edit_draft.html",
+                {"draft": draft, "error": "Text cannot be empty."},
+            )
 
         draft.text = text
         draft.last_modified = timezone.now()
 
         if "throw" in request.POST:
-            _save_and_maybe_crosspost(draft, text, request.user, request, as_draft=False)
+            _save_and_maybe_crosspost(
+                draft, text, request.user, request, as_draft=False
+            )
             return redirect("index")
         else:
             draft.save()
-            return render(request, "aether_notes/edit_draft.html", {"draft": draft, "saved": True})
+            return render(
+                request, "aether_notes/edit_draft.html", {"draft": draft, "saved": True}
+            )
 
     return render(request, "aether_notes/edit_draft.html", {"draft": draft})
+
 
 def index(request):
     now = timezone.now()
     cutoff = now - datetime.timedelta(days=7)
-    qs = Note.objects.filter(pub_date__gte=cutoff, is_draft=False).order_by("-pub_date").prefetch_related("crossposts")
+    qs = (
+        Note.objects.filter(pub_date__gte=cutoff, is_draft=False)
+        .order_by("-pub_date")
+        .prefetch_related("crossposts")
+    )
     notes = list(qs[:200])
 
     # Attach display metadata for fading and expiry labels
@@ -182,6 +201,7 @@ def about(request):
     return render(request, "aether_notes/about.html")
 
 
+@csrf_exempt
 @require_POST
 def witness(request):
     """Record a first-time view from a device for a given note.
@@ -217,6 +237,7 @@ def witness(request):
     return JsonResponse({"ok": True, "views": note.views})
 
 
+@csrf_exempt
 @require_POST
 def delete_note(request):
     """Delete a note if and only if the caller's device_id matches creator.
@@ -266,6 +287,7 @@ def delete_note(request):
     return JsonResponse({"ok": True})
 
 
+@csrf_exempt
 @require_POST
 def flag_note(request):
     """Toggle a flag for a note per device (flag/unflag). Expects: note_id, device_id."""
