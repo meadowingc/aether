@@ -168,7 +168,7 @@
         fetch(url, {
           method: "POST",
           headers: {
-            "X-CSRFToken": getCookie("csrftoken"),
+            "X-CSRFToken": getCsrfToken(),
             Accept: "application/json",
           },
         })
@@ -189,10 +189,9 @@
           });
       });
     }
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(";").shift();
+    function getCsrfToken() {
+      const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+      return tokenInput ? tokenInput.value : '';
     }
     test(
       "{% url 'accounts:test_mastodon' %}",

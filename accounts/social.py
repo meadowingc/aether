@@ -167,7 +167,7 @@ def post_status_cafe(profile: Profile, text: str, face: str | None = None) -> bo
         from bs4 import BeautifulSoup  # type: ignore
 
         # Shared client with cookie persistence
-        headers = {"User-Agent": "AetherCrossposter/0.1 (+https://aether.meadow.cafe)"}
+        headers = {"User-Agent": "Aether/0.1 (+https://aether.meadow.cafe)"}
         with httpx.Client(
             base_url="https://status.cafe",
             headers=headers,
