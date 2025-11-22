@@ -204,37 +204,96 @@ def about(request):
 @csrf_exempt
 @require_POST
 def witness(request):
-    """Record a first-time view from a device for a given note.
+    """Record first-time views from a device for one or more notes.
 
-    Expects JSON: { note_id: int, device_id: string }
+    Accepts either:
+    - Single note: { note_id: int, device_id: string }
+    - Batch: { note_ids: [int, ...], device_id: string }
+    
+    Returns:
+    - Single: { ok: bool, views: int, already?: bool }
+    - Batch: { ok: bool, results: { note_id: { views: int, already?: bool }, ... } }
     """
-    try:
-        note_id = int(request.POST.get("note_id"))
-        device_id = (request.POST.get("device_id") or "").strip()
-    except (TypeError, ValueError):
-        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+    device_id = (request.POST.get("device_id") or "").strip()
+    if not device_id:
+        return JsonResponse({"ok": False, "error": "missing_device_id"}, status=400)
 
-    if not device_id or not note_id:
-        return JsonResponse({"ok": False, "error": "missing_fields"}, status=400)
-
-    try:
-        note = Note.objects.get(pk=note_id)
-    except Note.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
-
-    try:
+    # Check if batch request (note_ids) or single (note_id)
+    note_ids_raw = request.POST.get("note_ids")
+    
+    if note_ids_raw:
+        # Batch processing
+        try:
+            # Parse comma-separated note IDs
+            note_ids = [int(nid.strip()) for nid in note_ids_raw.split(",") if nid.strip()]
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "invalid_note_ids"}, status=400)
+        
+        if not note_ids:
+            return JsonResponse({"ok": False, "error": "empty_note_ids"}, status=400)
+        
+        # Fetch all valid notes
+        notes = {n.id: n for n in Note.objects.filter(id__in=note_ids)}
+        results = {}
+        
         with transaction.atomic():
-            NoteView.objects.create(note=note, device_id=device_id)
-            Note.objects.filter(pk=note.pk).update(views=F("views") + 1)
-    except IntegrityError:
-        # Already witnessed; ignore
-        return JsonResponse(
-            {"ok": True, "already": True, "views": note.views}, status=200
-        )
+            # Prepare batch inserts
+            to_create = []
+            note_ids_to_increment = []
+            
+            for note_id in note_ids:
+                if note_id not in notes:
+                    results[note_id] = {"error": "not_found"}
+                    continue
+                
+                # Check if already witnessed
+                if NoteView.objects.filter(note_id=note_id, device_id=device_id).exists():
+                    results[note_id] = {"views": notes[note_id].views, "already": True}
+                else:
+                    to_create.append(NoteView(note_id=note_id, device_id=device_id))
+                    note_ids_to_increment.append(note_id)
+            
+            # Bulk create new witness records
+            if to_create:
+                NoteView.objects.bulk_create(to_create, ignore_conflicts=True)
+                # Increment view counts
+                Note.objects.filter(id__in=note_ids_to_increment).update(views=F("views") + 1)
+            
+            # Fetch updated counts for newly witnessed notes
+            for note_id in note_ids_to_increment:
+                notes[note_id].refresh_from_db(fields=["views"])
+                results[note_id] = {"views": notes[note_id].views}
+        
+        return JsonResponse({"ok": True, "results": results})
+    
+    else:
+        # Single note processing (backward compatibility)
+        try:
+            note_id = int(request.POST.get("note_id"))
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
 
-    # Fetch updated count
-    note.refresh_from_db(fields=["views"])
-    return JsonResponse({"ok": True, "views": note.views})
+        if not note_id:
+            return JsonResponse({"ok": False, "error": "missing_fields"}, status=400)
+
+        try:
+            note = Note.objects.get(pk=note_id)
+        except Note.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+        try:
+            with transaction.atomic():
+                NoteView.objects.create(note=note, device_id=device_id)
+                Note.objects.filter(pk=note.pk).update(views=F("views") + 1)
+        except IntegrityError:
+            # Already witnessed; ignore
+            return JsonResponse(
+                {"ok": True, "already": True, "views": note.views}, status=200
+            )
+
+        # Fetch updated count
+        note.refresh_from_db(fields=["views"])
+        return JsonResponse({"ok": True, "views": note.views})
 
 
 @csrf_exempt
