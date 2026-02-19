@@ -9,6 +9,7 @@ MASTODON_FALLBACK_LIMIT = (
     2000  # default; overridden per-user via Profile.mastodon_char_limit
 )
 BLUESKY_LIMIT = 300
+TUMBLR_LIMIT = 4096
 
 URL_RE = re.compile(r"https?://[\w\-._~%:/?#@!$&'()*+,;=]+", re.IGNORECASE)
 STATUS_CAFE_LIMIT = 140
@@ -146,6 +147,37 @@ def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | N
         return False, None, None
 
 
+def post_tumblr(profile: Profile, text: str) -> Tuple[bool, str | None, str | None]:
+    blog = (profile.tumblr_blog_name or "").strip()
+    token = profile.tumblr_access_token or ""
+    if not blog or not token or not profile.crosspost_tumblr:
+        return False, "disabled_or_missing", None
+    try:
+        import httpx
+
+        truncated = _truncate(text, TUMBLR_LIMIT)
+        r = httpx.post(
+            f"https://api.tumblr.com/v2/blog/{blog}/posts",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"content": [{"type": "text", "text": truncated}]},
+            timeout=15,
+        )
+        if r.status_code not in (200, 201):
+            profile.record_crosspost_error(f"Tumblr post failed: {r.status_code}")
+            return False, None, None
+        data = r.json()
+        response = data.get("response", {})
+        post_id = response.get("id")
+        remote_id = str(post_id) if post_id else None
+        # Normalise blog name for URL (strip .tumblr.com if present)
+        blog_slug = blog.replace(".tumblr.com", "")
+        remote_url = f"https://{blog_slug}.tumblr.com/post/{remote_id}" if remote_id else None
+        return True, remote_id, remote_url
+    except Exception as e:  # noqa: BLE001
+        profile.record_crosspost_error(f"Tumblr post failed: {e.__class__.__name__}")
+        return False, None, None
+
+
 def post_status_cafe(profile: Profile, text: str, face: str | None = None) -> bool:
     """Programmatic login + status submit to status.cafe.
 
@@ -254,6 +286,7 @@ def _post_selected_networks(
     want_masto: bool,
     want_bluesky: bool,
     want_status_cafe: bool,
+    want_tumblr: bool,
     status_cafe_face: Optional[str] = None,
     note=None,
 ) -> None:
@@ -291,6 +324,18 @@ def _post_selected_networks(
         ok = post_status_cafe(profile, text, face=status_cafe_face)
         any_error = any_error or (not ok)
 
+    if want_tumblr and getattr(profile, "crosspost_tumblr", False):
+        ok, remote_id, remote_url = post_tumblr(profile, text)
+        any_error = any_error or (not ok)
+        if ok and note is not None:
+            try:
+                from aether_notes.models import NoteCrosspost  # type: ignore
+                cp, created = NoteCrosspost.objects.get_or_create(note=note, network="tumblr")
+                if created:
+                    cp.mark_success(remote_id=remote_id, remote_url=remote_url)
+            except Exception:  # pragma: no cover
+                pass
+
     if not any_error and (
         profile.last_crosspost_error or profile.last_crosspost_error_at
     ):
@@ -304,6 +349,7 @@ def post_selected_networks_async(
     want_masto: bool,
     want_bluesky: bool,
     want_status_cafe: bool,
+    want_tumblr: bool,
     status_cafe_face: Optional[str] = None,
     note=None,
 ) -> None:
@@ -319,6 +365,7 @@ def post_selected_networks_async(
             want_masto=want_masto,
             want_bluesky=want_bluesky,
             want_status_cafe=want_status_cafe,
+            want_tumblr=want_tumblr,
             status_cafe_face=status_cafe_face,
             note=note,
         ),

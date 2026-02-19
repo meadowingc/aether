@@ -120,6 +120,39 @@
       </div>
     </div>
 
+    <!-- Tumblr Card -->
+    <div class="settings-card">
+      <h3 class="card-title" style="color:var(--accent);">Tumblr</h3>
+      <div class="field">
+        <label for="id_tumblr_blog_name">Blog Name</label>
+        {{ form.tumblr_blog_name }}
+        <p class="hint">Your Tumblr blog name (e.g. myblog). Auto-filled after OAuth sign-in.</p>
+      </div>
+      <div class="field">
+        <label for="id_tumblr_access_token">Access Token</label>
+        {{ form.tumblr_access_token }}
+        <p class="hint">OAuth2 token. Use the button below to sign in, or paste manually. Blank to clear.</p>
+      </div>
+      <div class="field oauth-row">
+        <a class="btn-chip" href="{% url 'accounts:tumblr_oauth_start' %}">Tumblr OAuth Sign‑In</a>
+        <p class="hint">Authorize Aether to post to your Tumblr blog.</p>
+      </div>
+      <div class="field">
+        {% if profile.tumblr_access_token %}
+          <p class="hint ok">Status: Connected (token stored){% if profile.tumblr_blog_name %} — {{ profile.tumblr_blog_name }}{% endif %}</p>
+        {% else %}
+          <p class="hint">Status: Not connected</p>
+        {% endif %}
+      </div>
+      <div class="field inline-toggle">
+        <div class="toggle-row">{{ form.crosspost_tumblr }} <span>Enable cross-posting notes to Tumblr</span></div>
+      </div>
+      <div class="field test-buttons">
+        <button type="button" id="test_tumblr_btn" {% if not profile.tumblr_access_token %}disabled{% endif %}>Test Connection</button>
+        <span id="test_tumblr_status" class="hint"></span>
+      </div>
+    </div>
+
     <!-- Security Card -->
     <div class="settings-card">
       <h3 class="card-title security">Security & 2FA</h3>
@@ -207,6 +240,11 @@
       "{% url 'accounts:test_status_cafe' %}",
       "test_status_cafe_btn",
       "test_status_cafe_status"
+    );
+    test(
+      "{% url 'accounts:test_tumblr' %}",
+      "test_tumblr_btn",
+      "test_tumblr_status"
     );
   })();
   </script>

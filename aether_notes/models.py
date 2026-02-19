@@ -71,6 +71,7 @@ class NoteCrosspost(models.Model):
     NETWORK_CHOICES = [
         ("mastodon", "Mastodon"),
         ("bluesky", "Bluesky"),
+        ("tumblr", "Tumblr"),
     ]
 
     note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name="crossposts")

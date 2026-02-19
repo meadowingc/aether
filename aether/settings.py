@@ -198,3 +198,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
 ADMIN_ENABLED = os.getenv("DJANGO_ADMIN_ENABLED", "True") == "True"
+
+# Tumblr OAuth2 (register at https://www.tumblr.com/oauth/apps)
+TUMBLR_CONSUMER_KEY = os.getenv("TUMBLR_CONSUMER_KEY", "")
+TUMBLR_CONSUMER_SECRET = os.getenv("TUMBLR_CONSUMER_SECRET", "")

@@ -47,6 +47,7 @@
                 {% for cp in cps %}
                   {% if cp.network == 'mastodon' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-mstn" target="_blank" rel="noopener" title="View on Mastodon">(mstn)</a>{% endif %}
                   {% if cp.network == 'bluesky' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-bsky" target="_blank" rel="noopener" title="View on Bluesky">(bsky)</a>{% endif %}
+                  {% if cp.network == 'tumblr' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-tblr" target="_blank" rel="noopener" title="View on Tumblr">(tblr)</a>{% endif %}
                 {% endfor %}
               </div>
             {% endif %}

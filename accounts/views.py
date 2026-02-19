@@ -176,6 +176,31 @@ def test_status_cafe(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"ok": False, "error": "exception"})
 
 
+@login_required
+@require_POST
+def test_tumblr(request: HttpRequest) -> HttpResponse:
+    profile: Profile = request.user.profile  # type: ignore[attr-defined]
+    token = profile.tumblr_access_token or ""
+    if not token:
+        return JsonResponse({"ok": False, "error": "missing_credentials"})
+    try:
+        import httpx
+
+        r = httpx.get(
+            "https://api.tumblr.com/v2/user/info",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            profile.clear_crosspost_error()
+            return JsonResponse({"ok": True})
+        profile.record_crosspost_error(f"Tumblr test failed: {r.status_code}")
+        return JsonResponse({"ok": False, "error": f"status_{r.status_code}"})
+    except Exception as e:  # noqa: BLE001
+        profile.record_crosspost_error(f"Tumblr exception: {e.__class__.__name__}")
+        return JsonResponse({"ok": False, "error": "exception"})
+
+
 # Helper to detect JSON/intended AJAX
 def wants_json(request: HttpRequest) -> bool:
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
@@ -300,6 +325,103 @@ def mastodon_oauth_callback(request: HttpRequest) -> HttpResponse:
     # Cleanup session (optional)
     try:
         del request.session[session_key]
+    except KeyError:
+        pass
+    return redirect(reverse("accounts:settings"))
+
+
+@login_required
+def tumblr_oauth_start(request: HttpRequest) -> HttpResponse:
+    """Redirect user to Tumblr OAuth2 authorize page."""
+    from django.conf import settings as django_settings
+    from urllib.parse import urlencode
+
+    consumer_key = getattr(django_settings, "TUMBLR_CONSUMER_KEY", "")
+    consumer_secret = getattr(django_settings, "TUMBLR_CONSUMER_SECRET", "")
+    if not consumer_key or not consumer_secret:
+        return HttpResponseBadRequest("Tumblr OAuth not configured (missing consumer key/secret in server settings).")
+
+    redirect_uri = request.build_absolute_uri(
+        reverse("accounts:tumblr_oauth_callback")
+    )
+    request.session["tumblr_oauth"] = {
+        "redirect_uri": redirect_uri,
+    }
+    request.session.modified = True
+
+    auth_url = "https://www.tumblr.com/oauth2/authorize?" + urlencode(
+        {
+            "client_id": consumer_key,
+            "response_type": "code",
+            "scope": "write offline_access",
+            "redirect_uri": redirect_uri,
+        }
+    )
+    return redirect(auth_url)
+
+
+@login_required
+def tumblr_oauth_callback(request: HttpRequest) -> HttpResponse:
+    """Exchange Tumblr OAuth2 authorization code for an access token."""
+    from django.conf import settings as django_settings
+
+    code = request.GET.get("code")
+    if not code:
+        return HttpResponseBadRequest("Missing code")
+
+    data = request.session.get("tumblr_oauth")
+    if not data:
+        return HttpResponseBadRequest("Session expired; restart OAuth.")
+
+    consumer_key = getattr(django_settings, "TUMBLR_CONSUMER_KEY", "")
+    consumer_secret = getattr(django_settings, "TUMBLR_CONSUMER_SECRET", "")
+
+    import httpx
+
+    try:
+        r = httpx.post(
+            "https://api.tumblr.com/v2/oauth2/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": consumer_key,
+                "client_secret": consumer_secret,
+                "redirect_uri": data["redirect_uri"],
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return HttpResponse(f"Token exchange failed ({r.status_code})", status=500)
+        payload = r.json()
+        access_token = payload.get("access_token")
+        if not access_token:
+            return HttpResponse("No access_token in response", status=500)
+
+        profile: Profile = request.user.profile  # type: ignore[attr-defined]
+        profile.tumblr_access_token = access_token
+        profile.crosspost_tumblr = True
+
+        # Auto-detect blog name from user info if not already set
+        if not profile.tumblr_blog_name:
+            try:
+                info_r = httpx.get(
+                    "https://api.tumblr.com/v2/user/info",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10,
+                )
+                if info_r.status_code == 200:
+                    blogs = info_r.json().get("response", {}).get("user", {}).get("blogs", [])
+                    if blogs:
+                        profile.tumblr_blog_name = blogs[0].get("name", "")
+            except Exception:  # noqa: BLE001
+                pass
+
+        profile.save(update_fields=["tumblr_access_token", "crosspost_tumblr", "tumblr_blog_name"])
+    except Exception as e:  # noqa: BLE001
+        return HttpResponse(f"OAuth exception: {e.__class__.__name__}", status=500)
+
+    try:
+        del request.session["tumblr_oauth"]
     except KeyError:
         pass
     return redirect(reverse("accounts:settings"))

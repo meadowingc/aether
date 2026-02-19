@@ -44,11 +44,12 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
         want_masto = bool(request.POST.get("xp_mastodon"))
         want_bsky = bool(request.POST.get("xp_bluesky"))
         want_status_cafe = bool(request.POST.get("xp_status_cafe"))
+        want_tumblr = bool(request.POST.get("xp_tumblr"))
         status_cafe_face = (
             request.POST.get("xp_status_cafe_face") or ""
         ).strip() or None
 
-        if any([want_masto, want_bsky, want_status_cafe]):
+        if any([want_masto, want_bsky, want_status_cafe, want_tumblr]):
             try:
                 post_selected_networks_async(
                     prof,
@@ -56,6 +57,7 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
                     want_masto=want_masto,
                     want_bluesky=want_bsky,
                     want_status_cafe=want_status_cafe,
+                    want_tumblr=want_tumblr,
                     status_cafe_face=status_cafe_face,
                     note=note,
                 )

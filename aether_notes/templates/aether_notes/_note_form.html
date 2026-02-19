@@ -33,6 +33,13 @@
               </span>
             </label>
           {% endif %}
+          {% if p.crosspost_tumblr and p.tumblr_blog_name and p.tumblr_access_token %}
+            <label class="net-toggle">
+              <input type="checkbox" name="xp_tumblr" id="xp_tumblr" checked>
+              <span>Tumblr</span>
+              <span id="tumblr_counter" class="char-counter small" data-limit="4096">0/4096</span>
+            </label>
+          {% endif %}
         </div>
       {% endwith %}
     {% endif %}
@@ -752,6 +759,7 @@
     restoreToggle('xp_mastodon', 'aether_xp_mastodon');
     restoreToggle('xp_bluesky', 'aether_xp_bluesky');
     restoreToggle('xp_status_cafe', 'aether_xp_status_cafe');
+    restoreToggle('xp_tumblr', 'aether_xp_tumblr');
 
     // Persist chosen Status.cafe face emoji (safe guard if emoji script already handled it)
     const faceInput = document.getElementById('xp_status_cafe_face');
