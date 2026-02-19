@@ -335,6 +335,7 @@ def tumblr_oauth_start(request: HttpRequest) -> HttpResponse:
     """Redirect user to Tumblr OAuth2 authorize page."""
     from django.conf import settings as django_settings
     from urllib.parse import urlencode
+    import secrets
 
     consumer_key = getattr(django_settings, "TUMBLR_CONSUMER_KEY", "")
     consumer_secret = getattr(django_settings, "TUMBLR_CONSUMER_SECRET", "")
@@ -344,8 +345,10 @@ def tumblr_oauth_start(request: HttpRequest) -> HttpResponse:
     redirect_uri = request.build_absolute_uri(
         reverse("accounts:tumblr_oauth_callback")
     )
+    state = secrets.token_urlsafe(32)
     request.session["tumblr_oauth"] = {
         "redirect_uri": redirect_uri,
+        "state": state,
     }
     request.session.modified = True
 
@@ -354,6 +357,7 @@ def tumblr_oauth_start(request: HttpRequest) -> HttpResponse:
             "client_id": consumer_key,
             "response_type": "code",
             "scope": "write offline_access",
+            "state": state,
             "redirect_uri": redirect_uri,
         }
     )
@@ -367,11 +371,17 @@ def tumblr_oauth_callback(request: HttpRequest) -> HttpResponse:
 
     code = request.GET.get("code")
     if not code:
-        return HttpResponseBadRequest("Missing code")
+        error = request.GET.get("error_description") or request.GET.get("error") or "Missing code"
+        return HttpResponseBadRequest(error)
 
     data = request.session.get("tumblr_oauth")
     if not data:
         return HttpResponseBadRequest("Session expired; restart OAuth.")
+
+    # Validate state to prevent CSRF
+    state = request.GET.get("state", "")
+    if not state or state != data.get("state"):
+        return HttpResponseBadRequest("State mismatch; restart OAuth.")
 
     consumer_key = getattr(django_settings, "TUMBLR_CONSUMER_KEY", "")
     consumer_secret = getattr(django_settings, "TUMBLR_CONSUMER_SECRET", "")
