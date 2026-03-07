@@ -13,6 +13,7 @@ urlpatterns = [
     path("test-bluesky/", views.test_bluesky, name="test_bluesky"),
     path("test-status-cafe/", views.test_status_cafe, name="test_status_cafe"),
     path("test-tumblr/", views.test_tumblr, name="test_tumblr"),
+    path("test-piclog-blue/", views.test_piclog_blue, name="test_piclog_blue"),
     # Mastodon OAuth
     path("mastodon/start/", views.mastodon_oauth_start, name="mastodon_oauth_start"),
     path("mastodon/callback/", views.mastodon_oauth_callback, name="mastodon_oauth_callback"),

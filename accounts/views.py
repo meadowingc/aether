@@ -201,6 +201,50 @@ def test_tumblr(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"ok": False, "error": "exception"})
 
 
+@login_required
+@require_POST
+def test_piclog_blue(request: HttpRequest) -> HttpResponse:
+    profile: Profile = request.user.profile  # type: ignore[attr-defined]
+    email = profile.piclog_blue_email or ""
+    password = profile.piclog_blue_password or ""
+
+    if not email or not password:
+        return JsonResponse({"ok": False, "error": "missing_credentials"})
+
+    try:
+        import httpx
+        from bs4 import BeautifulSoup  # type: ignore
+
+        headers = {"User-Agent": "Aether/0.1 (+https://aether.meadow.cafe)"}
+        with httpx.Client(base_url="https://piclog.blue", headers=headers, timeout=15, follow_redirects=True) as client:
+            r = client.get("/login.php")
+            if r.status_code != 200:
+                profile.record_crosspost_error(f"Piclog.blue login_get {r.status_code}")
+                return JsonResponse({"ok": False, "error": "login_get"})
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            csrf_input = soup.find("input", {"name": "csrf"})
+            csrf_token = csrf_input.get("value") if csrf_input else None
+
+            login_data: dict = {"email": email, "password": password}
+            if csrf_token:
+                login_data["csrf"] = csrf_token
+            client.post("/login.php", data=login_data)
+
+            # Verify login by accessing upload page
+            r_upload = client.get("/upload.php")
+            if r_upload.status_code != 200 or "login" in r_upload.url.path.lower():
+                profile.record_crosspost_error("Piclog.blue auth_failed")
+                return JsonResponse({"ok": False, "error": "auth_failed"})
+
+        profile.clear_crosspost_error()
+        return JsonResponse({"ok": True})
+
+    except Exception as e:  # noqa: BLE001
+        profile.record_crosspost_error(f"Piclog.blue exception: {e.__class__.__name__}")
+        return JsonResponse({"ok": False, "error": "exception"})
+
+
 # Helper to detect JSON/intended AJAX
 def wants_json(request: HttpRequest) -> bool:
     if request.headers.get("x-requested-with") == "XMLHttpRequest":

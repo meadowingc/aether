@@ -30,11 +30,16 @@ class Profile(models.Model):
     tumblr_blog_name = models.CharField(max_length=200, blank=True)
     tumblr_access_token = EncryptedTextField(blank=True)
 
+    # Piclog.blue
+    piclog_blue_email = models.CharField(max_length=200, blank=True)
+    piclog_blue_password = EncryptedTextField(blank=True)
+
     # Preferences
     crosspost_mastodon = models.BooleanField(default=False)
     crosspost_bluesky = models.BooleanField(default=False)
     crosspost_status_cafe = models.BooleanField(default=False)
     crosspost_tumblr = models.BooleanField(default=False)
+    crosspost_piclog_blue = models.BooleanField(default=False)
 
     # Archive / profile page (optional). If enabled, show user's notes beyond ephemeral window.
     show_archive = models.BooleanField(default=False, help_text="If true, a public archive/profile page is enabled")

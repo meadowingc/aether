@@ -1,13 +1,13 @@
 {% extends "aether_notes/base.html" %}
 {# Override base template for django-two-factor-auth pages to match site styling #}
-{% block title %}{% block two_factor_title %}Account Security{% endblock two_factor_title %} • Aether{% endblock %}
+{% block title %}{% block two_factor_title %}Account Security{% endblock %} • Aether{% endblock %}
 
 {% block content %}
-  <h2 style="margin-top:0">{% block two_factor_header %}Account Security{% endblock two_factor_header %}</h2>
+  <h2 style="margin-top:0">{% block two_factor_header %}Account Security{% endblock %}</h2>
   <div class="twofactor-wrapper">
-    {% block two_factor_content %}{% endblock two_factor_content %}
+    {% block two_factor_content %}{% endblock %}
   </div>
-{% endblock %}
+{% endblock content %}
 
 {% block extra_head %}
   {{ block.super }}
@@ -67,4 +67,4 @@
       border-radius:3px;
     }
   </style>
-{% endblock %}
+{% endblock extra_head %}

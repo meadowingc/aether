@@ -26,16 +26,43 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
     - note: Note instance (may be unsaved)
     - text: new text value
     - user: request.user or None
-    - request: HttpRequest (for POST flags)
+    - request: HttpRequest (for POST flags and FILES)
     - as_draft: True to keep as draft, False to publish
     """
     note.text = text
     if as_draft:
         note.is_draft = True
-        # keep existing pub_date if any
     else:
         note.is_draft = False
         note.pub_date = timezone.now()
+
+    # Handle image upload (authenticated users only)
+    image_hq_bytes = None
+    image_bluesky_bytes = None
+    image_compressed_bytes = None
+    image_alt = ""
+
+    uploaded_file = request.FILES.get("image") if request.FILES else None
+    if uploaded_file and user and user.is_authenticated:
+        from aether_notes.images import process_uploaded_image
+        from django.core.files.base import ContentFile
+
+        raw_bytes = uploaded_file.read()
+        if raw_bytes:
+            compressed, hq, bsky = process_uploaded_image(raw_bytes)
+            image_hq_bytes = hq
+            image_bluesky_bytes = bsky
+            image_compressed_bytes = compressed
+
+            # Save the compressed version to the note
+            filename = uploaded_file.name or "image.jpg"
+            # Ensure .jpg extension
+            if not filename.lower().endswith((".jpg", ".jpeg")):
+                filename = filename.rsplit(".", 1)[0] + ".jpg" if "." in filename else filename + ".jpg"
+            note.image.save(filename, ContentFile(compressed), save=False)
+            note.image_alt = (request.POST.get("image_alt") or "").strip()[:1000]
+            image_alt = note.image_alt
+
     note.save()
 
     # When publishing, mirror create_note's crosspost behavior
@@ -45,11 +72,12 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
         want_bsky = bool(request.POST.get("xp_bluesky"))
         want_status_cafe = bool(request.POST.get("xp_status_cafe"))
         want_tumblr = bool(request.POST.get("xp_tumblr"))
+        want_piclog_blue = bool(request.POST.get("xp_piclog_blue"))
         status_cafe_face = (
             request.POST.get("xp_status_cafe_face") or ""
         ).strip() or None
 
-        if any([want_masto, want_bsky, want_status_cafe, want_tumblr]):
+        if any([want_masto, want_bsky, want_status_cafe, want_tumblr, want_piclog_blue]):
             try:
                 post_selected_networks_async(
                     prof,
@@ -58,8 +86,13 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
                     want_bluesky=want_bsky,
                     want_status_cafe=want_status_cafe,
                     want_tumblr=want_tumblr,
+                    want_piclog_blue=want_piclog_blue,
                     status_cafe_face=status_cafe_face,
                     note=note,
+                    image_hq_bytes=image_hq_bytes,
+                    image_bluesky_bytes=image_bluesky_bytes,
+                    image_compressed_bytes=image_compressed_bytes,
+                    image_alt=image_alt,
                 )
             except Exception:
                 # Defensive: don't let crosspost failures block the request

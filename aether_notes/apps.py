@@ -7,3 +7,4 @@ class AetherNotesConfig(AppConfig):
     
     def ready(self):
         import aether_notes.db_signals
+        import aether_notes.signals  # noqa: F401 — register post_delete for image cleanup

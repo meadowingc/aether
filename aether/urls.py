@@ -19,6 +19,7 @@ from django.urls import include, path
 from accounts.views import logout_view
 from two_factor.urls import urlpatterns as tf_urls
 from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # Two-factor authentication routes (login, setup, profile, backup tokens)
@@ -30,3 +31,7 @@ urlpatterns = [
 
 if settings.ADMIN_ENABLED:
     urlpatterns += [path('admin/', admin.site.urls)]
+
+# Serve user-uploaded media in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

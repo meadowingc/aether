@@ -1,8 +1,23 @@
 {# Reusable note form partial. Expects variables: form_action, note_text, submit_label, show_save_draft, is_edit, errors, device_id, user, profile, crosspost fields, etc. #}
-<form class="note-form" action="{{ form_action }}" method="post">
+<form class="note-form" action="{{ form_action }}" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <label class="sr-only" for="note_text">Note</label>
   <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required autocomplete="off">{{ note_text|default_if_none:"" }}</textarea>
+  {% if user.is_authenticated %}
+    <div class="image-upload-row">
+      <label for="note_image" class="image-upload-label">
+        <span class="image-upload-icon">📷</span>
+        <span class="image-upload-text">Attach image</span>
+        <input type="file" id="note_image" name="image" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="image-upload-input">
+      </label>
+      <span id="image_filename" class="image-filename"></span>
+      <button type="button" id="image_clear_btn" class="image-clear-btn" style="display:none" title="Remove image">✕</button>
+    </div>
+    <div id="image_alt_row" class="image-alt-row" style="display:none">
+      <label class="sr-only" for="note_image_alt">Image alt text</label>
+      <input type="text" id="note_image_alt" name="image_alt" placeholder="Describe the image (alt text)" maxlength="1000" autocomplete="off">
+    </div>
+  {% endif %}
   <div class="counter-row">
     <span id="note_counter" class="char-counter">0/2000</span>
     {% if user.is_authenticated and profile %}
@@ -23,7 +38,7 @@
             </label>
           {% endif %}
           {% if p.crosspost_status_cafe and p.status_cafe_username and p.status_cafe_password %}
-            <label class="net-toggle">
+            <label class="net-toggle" id="status_cafe_toggle">
               <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
               <span>Status.cafe</span>
               <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
@@ -38,6 +53,13 @@
               <input type="checkbox" name="xp_tumblr" id="xp_tumblr" checked>
               <span>Tumblr</span>
               <span id="tumblr_counter" class="char-counter small" data-limit="4096">0/4096</span>
+            </label>
+          {% endif %}
+          {% if p.crosspost_piclog_blue and p.piclog_blue_email and p.piclog_blue_password %}
+            <label class="net-toggle piclog-toggle" id="piclog_blue_toggle" style="display:none" title="Only available when an image is attached">
+              <input type="checkbox" name="xp_piclog_blue" id="xp_piclog_blue" checked>
+              <span>Piclog.blue</span>
+              <span id="piclog_blue_counter" class="char-counter small" data-limit="5000">0/5000</span>
             </label>
           {% endif %}
         </div>
@@ -286,6 +308,83 @@
     .face-picker-popup:not(.mobile) .fp-item {
       font-size: 1.2rem;
     }
+  }
+</style>
+
+<style>
+  /* --- Image upload styles --- */
+  .image-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 2px;
+  }
+  .image-upload-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    transition: .2s;
+    color: var(--ink);
+    opacity: .8;
+  }
+  .image-upload-label:hover {
+    border-color: var(--accent);
+    opacity: 1;
+  }
+  .image-upload-input {
+    display: none;
+  }
+  .image-filename {
+    font-size: 12px;
+    opacity: .7;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .image-clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 6px;
+    opacity: .6;
+    transition: .2s;
+  }
+  .image-clear-btn:hover {
+    opacity: 1;
+    border-color: var(--warn, #c04040);
+    color: var(--warn, #c04040);
+  }
+  .image-alt-row {
+    margin: 2px 0 4px;
+  }
+  .image-alt-row input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+  .image-alt-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .note-image {
+    width: 100%;
+    height: auto;
+    margin-top: 6px;
+    border: 1px solid var(--border);
+  }
+  .piclog-toggle {
+    transition: opacity .2s;
   }
 </style>
 
@@ -774,5 +873,49 @@
         });
       } catch(e) {}
     }
+  })();
+</script>
+
+<script>
+  // --- Image upload handling ---
+  (function() {
+    const fileInput = document.getElementById('note_image');
+    const filenameSpan = document.getElementById('image_filename');
+    const clearBtn = document.getElementById('image_clear_btn');
+    const altRow = document.getElementById('image_alt_row');
+    const piclogToggle = document.getElementById('piclog_blue_toggle');
+    const statusCafeToggle = document.getElementById('status_cafe_toggle');
+    const statusCafeCheckbox = document.getElementById('xp_status_cafe');
+    if (!fileInput) return;
+
+    function updateUI() {
+      const hasFile = fileInput.files && fileInput.files.length > 0;
+      if (hasFile) {
+        filenameSpan.textContent = fileInput.files[0].name;
+        clearBtn.style.display = '';
+        if (altRow) altRow.style.display = '';
+        if (piclogToggle) piclogToggle.style.display = '';
+        // Status.cafe doesn't support images — disable it
+        if (statusCafeToggle) statusCafeToggle.style.opacity = '0.4';
+        if (statusCafeCheckbox) { statusCafeCheckbox.checked = false; statusCafeCheckbox.disabled = true; }
+      } else {
+        filenameSpan.textContent = '';
+        clearBtn.style.display = 'none';
+        if (altRow) altRow.style.display = 'none';
+        if (piclogToggle) piclogToggle.style.display = 'none';
+        // Re-enable status.cafe
+        if (statusCafeToggle) statusCafeToggle.style.opacity = '';
+        if (statusCafeCheckbox) { statusCafeCheckbox.disabled = false; statusCafeCheckbox.checked = true; }
+      }
+    }
+
+    fileInput.addEventListener('change', updateUI);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        fileInput.value = '';
+        updateUI();
+      });
+    }
+    updateUI();
   })();
 </script>

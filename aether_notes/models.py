@@ -18,6 +18,9 @@ class Note(models.Model):
     flags = models.PositiveIntegerField(default=0)
     # Device that created the note (client-generated UUID). Used for delete authorization.
     created_device_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    # Optional image attachment (aggressively compressed JPEG, <512KB)
+    image = models.ImageField(upload_to="note_images/", blank=True, null=True)
+    image_alt = models.CharField(max_length=1000, blank=True, help_text="Alt text for accessibility")
     # Draft support
     is_draft = models.BooleanField(default=False, db_index=True)
     last_modified = models.DateTimeField(auto_now=True)
@@ -72,6 +75,7 @@ class NoteCrosspost(models.Model):
         ("mastodon", "Mastodon"),
         ("bluesky", "Bluesky"),
         ("tumblr", "Tumblr"),
+        ("piclog_blue", "Piclog.blue"),
     ]
 
     note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name="crossposts")

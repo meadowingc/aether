@@ -44,6 +44,7 @@ class ProfileForm(forms.ModelForm):
     bluesky_app_password = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
     status_cafe_password = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
     tumblr_access_token = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
+    piclog_blue_password = forms.CharField(required=False, widget=forms.PasswordInput(render_value=True))
 
     class Meta:
         model = Profile
@@ -60,10 +61,13 @@ class ProfileForm(forms.ModelForm):
             "status_cafe_password",
             "tumblr_blog_name",
             "tumblr_access_token",
+            "piclog_blue_email",
+            "piclog_blue_password",
             "crosspost_mastodon",
             "crosspost_bluesky",
             "crosspost_status_cafe",
             "crosspost_tumblr",
+            "crosspost_piclog_blue",
         ]
 
     def save(self, commit=True):
@@ -77,6 +81,8 @@ class ProfileForm(forms.ModelForm):
             profile.status_cafe_password = self.cleaned_data.get("status_cafe_password") or ""
         if "tumblr_access_token" in self.cleaned_data:
             profile.tumblr_access_token = self.cleaned_data.get("tumblr_access_token") or ""
+        if "piclog_blue_password" in self.cleaned_data:
+            profile.piclog_blue_password = self.cleaned_data.get("piclog_blue_password") or ""
         if commit:
             profile.save()
         return profile

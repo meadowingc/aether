@@ -1,4 +1,5 @@
 from __future__ import annotations
+import io
 import re
 import threading
 from typing import Tuple, Optional, List
@@ -10,6 +11,7 @@ MASTODON_FALLBACK_LIMIT = (
 )
 BLUESKY_LIMIT = 300
 TUMBLR_LIMIT = 4096
+PICLOG_BLUE_LIMIT = 5000
 
 URL_RE = re.compile(r"https?://[\w\-._~%:/?#@!$&'()*+,;=]+", re.IGNORECASE)
 STATUS_CAFE_LIMIT = 140
@@ -23,7 +25,12 @@ def _truncate(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def post_mastodon(profile: Profile, text: str) -> Tuple[bool, str | None, str | None]:
+def post_mastodon(
+    profile: Profile,
+    text: str,
+    image_bytes: bytes | None = None,
+    image_alt: str = "",
+) -> Tuple[bool, str | None, str | None]:
     inst = (profile.mastodon_instance or "").rstrip("/")
     token = profile.mastodon_token or ""
     if not inst or not token or not profile.crosspost_mastodon:
@@ -36,7 +43,20 @@ def post_mastodon(profile: Profile, text: str) -> Tuple[bool, str | None, str | 
             getattr(profile, "mastodon_char_limit", MASTODON_FALLBACK_LIMIT)
             or MASTODON_FALLBACK_LIMIT
         )
-        status = api.status_post(_truncate(text, limit))
+        truncated = _truncate(text, limit)
+
+        media_ids = None
+        if image_bytes:
+            media = api.media_post(
+                io.BytesIO(image_bytes),
+                mime_type="image/jpeg",
+                description=image_alt or None,
+            )
+            media_id = media["id"] if isinstance(media, dict) else getattr(media, "id", None)
+            if media_id:
+                media_ids = [media_id]
+
+        status = api.status_post(truncated, media_ids=media_ids)
         remote_id = None
         remote_url = None
         if isinstance(status, dict):
@@ -101,7 +121,12 @@ def _build_bluesky_facets_manual(text: str):
 ## Link preview & thumbnail helpers removed as per request (keep code minimal)
 
 
-def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | None]:
+def post_bluesky(
+    profile: Profile,
+    text: str,
+    image_bytes: bytes | None = None,
+    image_alt: str = "",
+) -> Tuple[bool, str | None, str | None]:
     handle = profile.bluesky_handle or ""
     app_pw = profile.bluesky_app_password or ""
     if not handle or not app_pw or not profile.crosspost_bluesky:
@@ -112,30 +137,24 @@ def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | N
         # Truncate first to avoid slicing after facet indices prepared.
         truncated = _truncate(text, BLUESKY_LIMIT)
 
-        processed_text, facets = _build_bluesky_facets_with_richtext(truncated)
-        if facets is None:
-            facets = _build_bluesky_facets_manual(processed_text)
-
-        first_url = None
-        if facets:
-            # Extract first link url from facets
-            for fac in facets:
-                for feat in fac.get("features", []):
-                    if feat.get("$type") == "app.bsky.richtext.facet#link":
-                        first_url = feat.get("uri")
-                        break
-                if first_url:
-                    break
-
         client = Client()
         client.login(handle, app_pw)
-        # send_post supports facets & embed when provided
-        kwargs = {"text": processed_text}
-        if facets:
-            kwargs["facets"] = facets
 
-        # No external embed; links appear via facets only.
-        post = client.send_post(**kwargs)  # type: ignore[arg-type]
+        if image_bytes:
+            post = client.send_image(
+                text=truncated,
+                image=image_bytes,
+                image_alt=image_alt or "",
+            )
+        else:
+            processed_text, facets = _build_bluesky_facets_with_richtext(truncated)
+            if facets is None:
+                facets = _build_bluesky_facets_manual(processed_text)
+
+            kwargs = {"text": processed_text}
+            if facets:
+                kwargs["facets"] = facets
+            post = client.send_post(**kwargs)  # type: ignore[arg-type]
         uri = getattr(post, "uri", None)
         remote_url = None
         if isinstance(uri, str):
@@ -147,7 +166,12 @@ def post_bluesky(profile: Profile, text: str) -> Tuple[bool, str | None, str | N
         return False, None, None
 
 
-def post_tumblr(profile: Profile, text: str) -> Tuple[bool, str | None, str | None]:
+def post_tumblr(
+    profile: Profile,
+    text: str,
+    image_bytes: bytes | None = None,
+    image_alt: str = "",
+) -> Tuple[bool, str | None, str | None]:
     blog = (profile.tumblr_blog_name or "").strip()
     token = profile.tumblr_access_token or ""
     if not blog or not token or not profile.crosspost_tumblr:
@@ -156,10 +180,45 @@ def post_tumblr(profile: Profile, text: str) -> Tuple[bool, str | None, str | No
         import httpx
 
         truncated = _truncate(text, TUMBLR_LIMIT)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        content_blocks: list[dict] = []
+
+        if image_bytes:
+            # Upload image to Tumblr media endpoint first
+            media_url = None
+            try:
+                media_resp = httpx.post(
+                    "https://api.tumblr.com/v2/media",
+                    headers=headers,
+                    files={"media": ("image.jpg", io.BytesIO(image_bytes), "image/jpeg")},
+                    timeout=30,
+                )
+                if media_resp.status_code in (200, 201):
+                    media_data = media_resp.json()
+                    media_url = media_data.get("response", {}).get("media", {}).get("url")
+            except Exception:
+                pass
+
+            if media_url:
+                image_block: dict = {
+                    "type": "image",
+                    "media": [{"url": media_url, "type": "image/jpeg"}],
+                }
+                if image_alt:
+                    image_block["alt_text"] = image_alt
+                content_blocks.append(image_block)
+
+        if truncated:
+            content_blocks.append({"type": "text", "text": truncated})
+
+        if not content_blocks:
+            return False, None, None
+
         r = httpx.post(
             f"https://api.tumblr.com/v2/blog/{blog}/posts",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"content": [{"type": "text", "text": truncated}]},
+            headers={**headers, "Content-Type": "application/json"},
+            json={"content": content_blocks},
             timeout=15,
         )
         if r.status_code not in (200, 201):
@@ -279,6 +338,97 @@ def post_status_cafe(profile: Profile, text: str, face: str | None = None) -> bo
         return False
 
 
+def post_piclog_blue(
+    profile: Profile,
+    image_bytes: bytes,
+    description: str = "",
+) -> Tuple[bool, str | None, str | None]:
+    """Upload an image to piclog.blue via form scraping (login + CSRF + multipart upload).
+
+    Only called when an image is present. Returns (ok, remote_id, remote_url).
+    """
+    email = profile.piclog_blue_email or ""
+    password = profile.piclog_blue_password or ""
+    if not email or not password or not profile.crosspost_piclog_blue:
+        return False, "disabled_or_missing", None
+
+    try:
+        import httpx
+        from bs4 import BeautifulSoup  # type: ignore
+
+        headers = {"User-Agent": "Aether/0.1 (+https://aether.meadow.cafe)"}
+        with httpx.Client(
+            base_url="https://piclog.blue",
+            headers=headers,
+            timeout=20,
+            follow_redirects=True,
+        ) as client:
+            # Step 1: fetch login page for CSRF token
+            r = client.get("/login.php")
+            if r.status_code != 200:
+                profile.record_crosspost_error(f"Piclog.blue login_get {r.status_code}")
+                return False, None, None
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            csrf_input = soup.find("input", {"name": "csrf"})
+            csrf_login = csrf_input.get("value") if csrf_input else None
+
+            # Step 2: post login credentials
+            login_data: dict = {
+                "email": email,
+                "password": password,
+            }
+            if csrf_login:
+                login_data["csrf"] = csrf_login
+            client.post("/login.php", data=login_data)
+
+            # Verify login by checking if we can access upload page
+            r_upload = client.get("/upload.php")
+            if r_upload.status_code != 200 or "login" in r_upload.url.path.lower():
+                profile.record_crosspost_error("Piclog.blue auth_failed")
+                return False, None, None
+
+            # Step 3: parse upload form for CSRF token
+            soup_upload = BeautifulSoup(r_upload.text, "html.parser")
+            upload_form = soup_upload.find("form")
+            csrf_upload = None
+            if upload_form:
+                csrf_el = upload_form.find("input", {"name": "csrf"})
+                if csrf_el:
+                    csrf_upload = csrf_el.get("value")
+
+            # Step 4: upload the image
+            truncated_desc = _truncate(description, PICLOG_BLUE_LIMIT)
+            upload_data: dict = {"description": truncated_desc}
+            if csrf_upload:
+                upload_data["csrf"] = csrf_upload
+            # Filename becomes the post title on piclog.blue
+            from django.utils import timezone as _tz
+            timestamp = str(int(_tz.now().timestamp()))
+            filename = f"{timestamp}.jpg"
+            files = {"image": (filename, io.BytesIO(image_bytes), "image/jpeg")}
+            r_post = client.post("/upload.php", data=upload_data, files=files)
+
+            if r_post.status_code not in (200, 302):
+                profile.record_crosspost_error(f"Piclog.blue upload_fail {r_post.status_code}")
+                return False, None, None
+
+            # Try to extract the image URL from the redirect or response
+            remote_url = None
+            if "image.php" in str(r_post.url):
+                remote_url = str(r_post.url)
+            elif r_post.status_code == 302:
+                location = r_post.headers.get("location", "")
+                if location:
+                    remote_url = f"https://piclog.blue/{location}" if not location.startswith("http") else location
+
+            return True, None, remote_url
+
+    except Exception as e:  # noqa: BLE001
+        profile.record_crosspost_error(f"Piclog.blue exception: {e.__class__.__name__}")
+        return False, None, None
+
+
 def _post_selected_networks(
     profile: Profile,
     text: str,
@@ -287,8 +437,13 @@ def _post_selected_networks(
     want_bluesky: bool,
     want_status_cafe: bool,
     want_tumblr: bool,
+    want_piclog_blue: bool = False,
     status_cafe_face: Optional[str] = None,
     note=None,
+    image_hq_bytes: bytes | None = None,
+    image_bluesky_bytes: bytes | None = None,
+    image_compressed_bytes: bytes | None = None,
+    image_alt: str = "",
 ) -> None:
     """Internal worker that respects per-note selections combined with profile global toggles.
 
@@ -297,7 +452,9 @@ def _post_selected_networks(
     any_error = False
 
     if want_masto and profile.crosspost_mastodon:
-        ok, remote_id, remote_url = post_mastodon(profile, text)
+        ok, remote_id, remote_url = post_mastodon(
+            profile, text, image_bytes=image_hq_bytes, image_alt=image_alt,
+        )
         any_error = any_error or (not ok)
         if ok and note is not None:
             try:
@@ -309,7 +466,9 @@ def _post_selected_networks(
                 pass
 
     if want_bluesky and profile.crosspost_bluesky:
-        ok, remote_id, remote_url = post_bluesky(profile, text)
+        ok, remote_id, remote_url = post_bluesky(
+            profile, text, image_bytes=image_bluesky_bytes, image_alt=image_alt,
+        )
         any_error = any_error or (not ok)
         if ok and note is not None:
             try:
@@ -325,12 +484,28 @@ def _post_selected_networks(
         any_error = any_error or (not ok)
 
     if want_tumblr and getattr(profile, "crosspost_tumblr", False):
-        ok, remote_id, remote_url = post_tumblr(profile, text)
+        ok, remote_id, remote_url = post_tumblr(
+            profile, text, image_bytes=image_hq_bytes, image_alt=image_alt,
+        )
         any_error = any_error or (not ok)
         if ok and note is not None:
             try:
                 from aether_notes.models import NoteCrosspost  # type: ignore
                 cp, created = NoteCrosspost.objects.get_or_create(note=note, network="tumblr")
+                if created:
+                    cp.mark_success(remote_id=remote_id, remote_url=remote_url)
+            except Exception:  # pragma: no cover
+                pass
+
+    if want_piclog_blue and image_compressed_bytes and getattr(profile, "crosspost_piclog_blue", False):
+        ok, remote_id, remote_url = post_piclog_blue(
+            profile, image_compressed_bytes, description=text,
+        )
+        any_error = any_error or (not ok)
+        if ok and note is not None:
+            try:
+                from aether_notes.models import NoteCrosspost  # type: ignore
+                cp, created = NoteCrosspost.objects.get_or_create(note=note, network="piclog_blue")
                 if created:
                     cp.mark_success(remote_id=remote_id, remote_url=remote_url)
             except Exception:  # pragma: no cover
@@ -350,8 +525,13 @@ def post_selected_networks_async(
     want_bluesky: bool,
     want_status_cafe: bool,
     want_tumblr: bool,
+    want_piclog_blue: bool = False,
     status_cafe_face: Optional[str] = None,
     note=None,
+    image_hq_bytes: bytes | None = None,
+    image_bluesky_bytes: bytes | None = None,
+    image_compressed_bytes: bytes | None = None,
+    image_alt: str = "",
 ) -> None:
     """Fire-and-forget thread that posts only to networks the user selected on this note.
 
@@ -366,8 +546,13 @@ def post_selected_networks_async(
             want_bluesky=want_bluesky,
             want_status_cafe=want_status_cafe,
             want_tumblr=want_tumblr,
+            want_piclog_blue=want_piclog_blue,
             status_cafe_face=status_cafe_face,
             note=note,
+            image_hq_bytes=image_hq_bytes,
+            image_bluesky_bytes=image_bluesky_bytes,
+            image_compressed_bytes=image_compressed_bytes,
+            image_alt=image_alt,
         ),
         daemon=True,
     ).start()

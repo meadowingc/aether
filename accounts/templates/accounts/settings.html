@@ -1,6 +1,7 @@
 {% extends "aether_notes/base.html" %}
 {% load static %}
 {% block title %}Settings • Aether{% endblock %}
+
 {% block content %}
 <h2 class="settings-heading">Account Settings</h2>
 
@@ -153,6 +154,36 @@
       </div>
     </div>
 
+    <!-- Piclog.blue Card -->
+    <div class="settings-card">
+      <h3 class="card-title" style="color:var(--accent);">Piclog.blue</h3>
+      <div class="field">
+        <label for="id_piclog_blue_email">Email</label>
+        {{ form.piclog_blue_email }}
+        <p class="hint">Your piclog.blue account email.</p>
+      </div>
+      <div class="field">
+        <label for="id_piclog_blue_password">Password</label>
+        {{ form.piclog_blue_password }}
+        <p class="hint">Stored encrypted. Blank to clear.</p>
+      </div>
+      <div class="field">
+        {% if profile.piclog_blue_email and profile.piclog_blue_password %}
+          <p class="hint ok">Status: Credentials stored</p>
+        {% else %}
+          <p class="hint">Status: Not configured</p>
+        {% endif %}
+      </div>
+      <div class="field inline-toggle">
+        <div class="toggle-row">{{ form.crosspost_piclog_blue }} <span>Enable cross-posting images to Piclog.blue</span></div>
+        <p class="hint">Only used when a note has an image attached. JPEG only, 512KB max.</p>
+      </div>
+      <div class="field test-buttons">
+        <button type="button" id="test_piclog_blue_btn" {% if not profile.piclog_blue_email or not profile.piclog_blue_password %}disabled{% endif %}>Test Login</button>
+        <span id="test_piclog_blue_status" class="hint"></span>
+      </div>
+    </div>
+
     <!-- Security Card -->
     <div class="settings-card">
       <h3 class="card-title security">Security & 2FA</h3>
@@ -184,7 +215,7 @@
     <button type="submit" class="primary-save">Save Settings</button>
   </div>
 </form>
-{% endblock %}
+{% endblock content %}
 
 {% block scripts %}
   {{ block.super }}
@@ -246,6 +277,11 @@
       "test_tumblr_btn",
       "test_tumblr_status"
     );
+    test(
+      "{% url 'accounts:test_piclog_blue' %}",
+      "test_piclog_blue_btn",
+      "test_piclog_blue_status"
+    );
   })();
   </script>
   <style>
@@ -295,4 +331,4 @@
       .settings-grid { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
     }
   </style>
-{% endblock %}
+{% endblock scripts %}

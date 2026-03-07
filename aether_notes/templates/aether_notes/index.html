@@ -17,6 +17,9 @@
             data-created-by-user="{{ note.user.username|default:'' }}"
             style="opacity: {{ note.opacity|default:1 }};" >
           <div class="note-text">{{ note.text|urlize|linebreaksbr }}</div>
+          {% if note.image %}
+            <img src="{{ note.image.url }}" alt="{{ note.image_alt|default:'Note image' }}" class="note-image" loading="lazy">
+          {% endif %}
           <footer class="note-meta">
             {% if note.user %}
               {% if note.user.profile.show_archive %}
@@ -48,6 +51,7 @@
                   {% if cp.network == 'mastodon' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-mstn" target="_blank" rel="noopener" title="View on Mastodon">(mstn)</a>{% endif %}
                   {% if cp.network == 'bluesky' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-bsky" target="_blank" rel="noopener" title="View on Bluesky">(bsky)</a>{% endif %}
                   {% if cp.network == 'tumblr' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-tblr" target="_blank" rel="noopener" title="View on Tumblr">(tblr)</a>{% endif %}
+                  {% if cp.network == 'piclog_blue' and cp.remote_url %}<a href="{{ cp.remote_url }}" class="xp xp-pclg" target="_blank" rel="noopener" title="View on Piclog.blue">(pclg)</a>{% endif %}
                 {% endfor %}
               </div>
             {% endif %}

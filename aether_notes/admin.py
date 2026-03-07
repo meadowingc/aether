@@ -20,7 +20,7 @@ class HasFlagsFilter(admin.SimpleListFilter):
 
 @admin.register(Note)
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ("short_text", "author", "pub_date", "views", "flags")
+    list_display = ("short_text", "author", "pub_date", "views", "flags", "has_image")
     search_fields = ("text", "author")
     list_filter = (HasFlagsFilter,)
     ordering = ("-flags", "-pub_date")
@@ -28,6 +28,10 @@ class NoteAdmin(admin.ModelAdmin):
     @admin.display(description="text")
     def short_text(self, obj):
         return (obj.text[:80] + "…") if len(obj.text) > 80 else obj.text
+
+    @admin.display(description="img", boolean=True)
+    def has_image(self, obj):
+        return bool(obj.image)
 
 
 @admin.register(NoteFlag)
