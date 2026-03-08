@@ -44,7 +44,7 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
 
     uploaded_file = request.FILES.get("image") if request.FILES else None
     if uploaded_file and user and user.is_authenticated:
-        from aether_notes.images import process_uploaded_image
+        from aether_notes.images import process_uploaded_image, convert_for_bluesky
         from django.core.files.base import ContentFile
 
         raw_bytes = uploaded_file.read()
@@ -54,14 +54,39 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
             image_bluesky_bytes = bsky
             image_compressed_bytes = compressed
 
-            # Save the compressed version to the note
+            # Save the compressed version for display
             filename = uploaded_file.name or "image.jpg"
-            # Ensure .jpg extension
             if not filename.lower().endswith((".jpg", ".jpeg")):
                 filename = filename.rsplit(".", 1)[0] + ".jpg" if "." in filename else filename + ".jpg"
             note.image.save(filename, ContentFile(compressed), save=False)
+            # Save the HQ version for crossposting later (e.g. drafts)
+            note.image_hq.save("hq_" + filename, ContentFile(hq), save=False)
             note.image_alt = (request.POST.get("image_alt") or "").strip()[:1000]
             image_alt = note.image_alt
+
+    # When publishing a draft that already has an image but no new upload,
+    # read the stored HQ image to produce crosspost versions.
+    if not uploaded_file and not as_draft and note.image and note.image_hq:
+        from aether_notes.images import convert_for_bluesky, compress_for_storage
+        try:
+            note.image_hq.open("rb")
+            hq_bytes = note.image_hq.read()
+            note.image_hq.close()
+            if hq_bytes:
+                image_hq_bytes = hq_bytes
+                image_bluesky_bytes = convert_for_bluesky(hq_bytes)
+                image_compressed_bytes = compress_for_storage(hq_bytes)
+                image_alt = note.image_alt or ""
+        except Exception:
+            pass
+
+    # Delete the HQ file once we've extracted what we need for crossposting.
+    if not as_draft and note.image_hq:
+        try:
+            note.image_hq.delete(save=False)
+        except Exception:
+            pass
+        note.image_hq = None
 
     note.save()
 

@@ -10,11 +10,12 @@ from .models import Note
 
 @receiver(post_delete, sender=Note)
 def delete_note_image_file(sender, instance, **kwargs):
-    """Remove the image file from disk when a Note is deleted."""
-    if instance.image and instance.image.name:
-        try:
-            storage = instance.image.storage
-            if storage.exists(instance.image.name):
-                storage.delete(instance.image.name)
-        except Exception:
-            pass
+    """Remove the image files from disk when a Note is deleted."""
+    for field in (instance.image, getattr(instance, "image_hq", None)):
+        if field and field.name:
+            try:
+                storage = field.storage
+                if storage.exists(field.name):
+                    storage.delete(field.name)
+            except Exception:
+                pass

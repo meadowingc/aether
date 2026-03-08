@@ -1,4 +1,5 @@
 {% extends "aether_notes/base.html" %}
+{% load static %}
 
 {% block title %}Drafts{% endblock %}
 
@@ -65,4 +66,5 @@
         document.addEventListener('click', onClick);
     })();
     </script>
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
 {% endblock content %}

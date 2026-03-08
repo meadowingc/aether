@@ -1,8 +1,19 @@
 import datetime
+import uuid
 
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+
+
+def _note_image_path(instance, filename):
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+    return f"note_images/{uuid.uuid4().hex}.{ext}"
+
+
+def _note_image_hq_path(instance, filename):
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+    return f"note_images_hq/{uuid.uuid4().hex}.{ext}"
 
 
 # Create your models here.
@@ -19,7 +30,9 @@ class Note(models.Model):
     # Device that created the note (client-generated UUID). Used for delete authorization.
     created_device_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     # Optional image attachment (aggressively compressed JPEG, <512KB)
-    image = models.ImageField(upload_to="note_images/", blank=True, null=True)
+    image = models.ImageField(upload_to=_note_image_path, blank=True, null=True)
+    # High-quality version for crossposting (max 2048px, quality 90)
+    image_hq = models.FileField(upload_to=_note_image_hq_path, blank=True, null=True)
     image_alt = models.CharField(max_length=1000, blank=True, help_text="Alt text for accessibility")
     # Draft support
     is_draft = models.BooleanField(default=False, db_index=True)
