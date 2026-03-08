@@ -232,38 +232,38 @@ def post_tumblr(
             content_blocks: list[dict] = []
 
             if image_bytes:
-                media_url = None
-                try:
-                    media_resp = httpx.post(
-                        "https://api.tumblr.com/v2/media",
-                        headers=headers,
-                        files={"media": ("image.jpg", io.BytesIO(image_bytes), "image/jpeg")},
-                        timeout=30,
-                    )
-                    if media_resp.status_code in (200, 201):
-                        media_data = media_resp.json()
-                        media_url = media_data.get("response", {}).get("media", {}).get("url")
-                except Exception:
-                    pass
-
-                if media_url:
-                    image_block: dict = {
-                        "type": "image",
-                        "media": [{"url": media_url, "type": "image/jpeg"}],
-                    }
-                    if image_alt:
-                        image_block["alt_text"] = image_alt
-                    content_blocks.append(image_block)
+                image_block: dict = {
+                    "type": "image",
+                    "media": [{"identifier": "aether-img-0"}],
+                }
+                if image_alt:
+                    image_block["alt_text"] = image_alt
+                content_blocks.append(image_block)
 
             if truncated:
                 content_blocks.append({"type": "text", "text": truncated})
 
-            r = httpx.post(
-                f"https://api.tumblr.com/v2/blog/{blog}/posts",
-                headers={**headers, "Content-Type": "application/json"},
-                json={"content": content_blocks},
-                timeout=15,
-            )
+            import json as _json
+
+            if image_bytes:
+                # Multipart: send NPF JSON + image binary together
+                files = {
+                    "json": (None, _json.dumps({"content": content_blocks}), "application/json"),
+                    "aether-img-0": ("image.jpg", io.BytesIO(image_bytes), "image/jpeg"),
+                }
+                r = httpx.post(
+                    f"https://api.tumblr.com/v2/blog/{blog}/posts",
+                    headers=headers,
+                    files=files,
+                    timeout=30,
+                )
+            else:
+                r = httpx.post(
+                    f"https://api.tumblr.com/v2/blog/{blog}/posts",
+                    headers={**headers, "Content-Type": "application/json"},
+                    json={"content": content_blocks},
+                    timeout=15,
+                )
             return r, content_blocks
 
         r, content_blocks = _do_post(token)
