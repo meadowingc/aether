@@ -5,6 +5,12 @@
 
 {% block content %}
   <h2>Edit Draft</h2>
+  {% if draft.image %}
+    <div class="draft-image-preview">
+      <img src="{{ draft.image.url }}" alt="{{ draft.image_alt|default:'Draft image' }}" class="note-image" loading="lazy">
+      <p class="hint">Image already attached{% if draft.image_alt %} — alt: "{{ draft.image_alt }}"{% endif %}</p>
+    </div>
+  {% endif %}
   {% include "aether_notes/_note_form.html" with form_action=request.path note_text=draft.text submit_label="Throw" show_save_draft=False is_edit=True errors=error|default_if_none:"" device_id=draft.created_device_id user=request.user profile=request.user.profile|default_if_none:"" %}
   {% if saved %}
     <p class="hint ok">Draft saved.</p>

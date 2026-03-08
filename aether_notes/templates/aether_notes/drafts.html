@@ -14,6 +14,9 @@
           data-created-by-user="{{ draft.user.username|default:'' }}"
         >
           <div class="note-text">{{ draft.text }}</div>
+          {% if draft.image %}
+            <img src="{{ draft.image.url }}" alt="{{ draft.image_alt|default:'Draft image' }}" class="note-image" loading="lazy">
+          {% endif %}
           <footer class="note-meta">
             <span class="draft-date">{{ draft.last_modified|date:"Y-m-d H:i" }}</span>
             <span class="dot">•</span>
