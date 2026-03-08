@@ -166,6 +166,52 @@ def post_bluesky(
         return False, None, None
 
 
+def _refresh_tumblr_token(profile: Profile) -> str | None:
+    """Attempt to refresh an expired Tumblr access token using the stored refresh token.
+
+    Returns the new access token on success, or None on failure.
+    """
+    refresh_token = getattr(profile, "tumblr_refresh_token", "") or ""
+    if not refresh_token:
+        return None
+    try:
+        import httpx
+        from django.conf import settings as django_settings
+
+        consumer_key = getattr(django_settings, "TUMBLR_CONSUMER_KEY", "")
+        consumer_secret = getattr(django_settings, "TUMBLR_CONSUMER_SECRET", "")
+        if not consumer_key or not consumer_secret:
+            return None
+
+        r = httpx.post(
+            "https://api.tumblr.com/v2/oauth2/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": consumer_key,
+                "client_secret": consumer_secret,
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        payload = r.json()
+        new_access = payload.get("access_token")
+        new_refresh = payload.get("refresh_token")
+        if not new_access:
+            return None
+
+        profile.tumblr_access_token = new_access
+        update_fields = ["tumblr_access_token"]
+        if new_refresh:
+            profile.tumblr_refresh_token = new_refresh
+            update_fields.append("tumblr_refresh_token")
+        profile.save(update_fields=update_fields)
+        return new_access
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def post_tumblr(
     profile: Profile,
     text: str,
@@ -180,47 +226,56 @@ def post_tumblr(
         import httpx
 
         truncated = _truncate(text, TUMBLR_LIMIT)
-        headers = {"Authorization": f"Bearer {token}"}
 
-        content_blocks: list[dict] = []
+        def _do_post(auth_token: str) -> Tuple[httpx.Response, list[dict]]:
+            headers = {"Authorization": f"Bearer {auth_token}"}
+            content_blocks: list[dict] = []
 
-        if image_bytes:
-            # Upload image to Tumblr media endpoint first
-            media_url = None
-            try:
-                media_resp = httpx.post(
-                    "https://api.tumblr.com/v2/media",
-                    headers=headers,
-                    files={"media": ("image.jpg", io.BytesIO(image_bytes), "image/jpeg")},
-                    timeout=30,
-                )
-                if media_resp.status_code in (200, 201):
-                    media_data = media_resp.json()
-                    media_url = media_data.get("response", {}).get("media", {}).get("url")
-            except Exception:
-                pass
+            if image_bytes:
+                media_url = None
+                try:
+                    media_resp = httpx.post(
+                        "https://api.tumblr.com/v2/media",
+                        headers=headers,
+                        files={"media": ("image.jpg", io.BytesIO(image_bytes), "image/jpeg")},
+                        timeout=30,
+                    )
+                    if media_resp.status_code in (200, 201):
+                        media_data = media_resp.json()
+                        media_url = media_data.get("response", {}).get("media", {}).get("url")
+                except Exception:
+                    pass
 
-            if media_url:
-                image_block: dict = {
-                    "type": "image",
-                    "media": [{"url": media_url, "type": "image/jpeg"}],
-                }
-                if image_alt:
-                    image_block["alt_text"] = image_alt
-                content_blocks.append(image_block)
+                if media_url:
+                    image_block: dict = {
+                        "type": "image",
+                        "media": [{"url": media_url, "type": "image/jpeg"}],
+                    }
+                    if image_alt:
+                        image_block["alt_text"] = image_alt
+                    content_blocks.append(image_block)
 
-        if truncated:
-            content_blocks.append({"type": "text", "text": truncated})
+            if truncated:
+                content_blocks.append({"type": "text", "text": truncated})
+
+            r = httpx.post(
+                f"https://api.tumblr.com/v2/blog/{blog}/posts",
+                headers={**headers, "Content-Type": "application/json"},
+                json={"content": content_blocks},
+                timeout=15,
+            )
+            return r, content_blocks
+
+        r, content_blocks = _do_post(token)
+
+        # Auto-refresh on 401 (expired token)
+        if r.status_code == 401:
+            new_token = _refresh_tumblr_token(profile)
+            if new_token:
+                r, content_blocks = _do_post(new_token)
 
         if not content_blocks:
             return False, None, None
-
-        r = httpx.post(
-            f"https://api.tumblr.com/v2/blog/{blog}/posts",
-            headers={**headers, "Content-Type": "application/json"},
-            json={"content": content_blocks},
-            timeout=15,
-        )
         if r.status_code not in (200, 201):
             profile.record_crosspost_error(f"Tumblr post failed: {r.status_code}")
             return False, None, None

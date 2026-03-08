@@ -29,6 +29,7 @@ class Profile(models.Model):
     # Tumblr
     tumblr_blog_name = models.CharField(max_length=200, blank=True)
     tumblr_access_token = EncryptedTextField(blank=True)
+    tumblr_refresh_token = EncryptedTextField(blank=True)
 
     # Piclog.blue
     piclog_blue_email = models.CharField(max_length=200, blank=True)

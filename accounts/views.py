@@ -191,6 +191,17 @@ def test_tumblr(request: HttpRequest) -> HttpResponse:
             headers={"Authorization": f"Bearer {token}"},
             timeout=10,
         )
+        # Auto-refresh on 401
+        if r.status_code == 401:
+            from accounts.social import _refresh_tumblr_token
+
+            new_token = _refresh_tumblr_token(profile)
+            if new_token:
+                r = httpx.get(
+                    "https://api.tumblr.com/v2/user/info",
+                    headers={"Authorization": f"Bearer {new_token}"},
+                    timeout=10,
+                )
         if r.status_code == 200:
             profile.clear_crosspost_error()
             return JsonResponse({"ok": True})
@@ -450,9 +461,11 @@ def tumblr_oauth_callback(request: HttpRequest) -> HttpResponse:
         access_token = payload.get("access_token")
         if not access_token:
             return HttpResponse("No access_token in response", status=500)
+        refresh_token = payload.get("refresh_token", "")
 
         profile: Profile = request.user.profile  # type: ignore[attr-defined]
         profile.tumblr_access_token = access_token
+        profile.tumblr_refresh_token = refresh_token or ""
         profile.crosspost_tumblr = True
 
         # Auto-detect blog name from user info if not already set
@@ -470,7 +483,7 @@ def tumblr_oauth_callback(request: HttpRequest) -> HttpResponse:
             except Exception:  # noqa: BLE001
                 pass
 
-        profile.save(update_fields=["tumblr_access_token", "crosspost_tumblr", "tumblr_blog_name"])
+        profile.save(update_fields=["tumblr_access_token", "tumblr_refresh_token", "crosspost_tumblr", "tumblr_blog_name"])
     except Exception as e:  # noqa: BLE001
         return HttpResponse(f"OAuth exception: {e.__class__.__name__}", status=500)
 
