@@ -1,5 +1,5 @@
 {# Reusable note form partial. Expects variables: form_action, note_text, submit_label, show_save_draft, is_edit, errors, device_id, user, profile, crosspost fields, etc. #}
-<form class="note-form" action="{{ form_action }}" method="post" enctype="multipart/form-data">
+<form class="note-form" action="{{ form_action }}" method="post" enctype="multipart/form-data"{% if has_existing_image %} data-has-existing-image="1"{% endif %}>
   {% csrf_token %}
   <label class="sr-only" for="note_text">Note</label>
   <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required autocomplete="off">{{ note_text|default_if_none:"" }}</textarea>
@@ -888,11 +888,13 @@
     const statusCafeCheckbox = document.getElementById('xp_status_cafe');
     if (!fileInput) return;
 
+    const hasExistingImage = fileInput.closest('form')?.dataset.hasExistingImage === '1';
     function updateUI() {
-      const hasFile = fileInput.files && fileInput.files.length > 0;
+      const hasFile = (fileInput.files && fileInput.files.length > 0) || hasExistingImage;
       if (hasFile) {
-        filenameSpan.textContent = fileInput.files[0].name;
-        clearBtn.style.display = '';
+        const hasNewFile = fileInput.files && fileInput.files.length > 0;
+        filenameSpan.textContent = hasNewFile ? fileInput.files[0].name : '(existing image)';
+        clearBtn.style.display = hasNewFile ? '' : 'none';
         if (altRow) altRow.style.display = '';
         if (piclogToggle) piclogToggle.style.display = '';
         // Status.cafe doesn't support images — disable it
