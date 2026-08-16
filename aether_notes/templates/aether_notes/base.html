@@ -60,6 +60,7 @@
             <span class="user-pill">👤 {{ request.user.username }}</span>
           {% endif %}
           <a class="about-link" href="{% url 'drafts_list' %}">Drafts</a>
+          <a class="about-link" href="{% url 'queue_list' %}">Queue</a>
           <a class="about-link" href="{% url 'accounts:settings' %}">Settings</a>
           <a class="about-link" href="{% url 'logout' %}">Logout</a>
         {% else %}
@@ -79,6 +80,7 @@
               <span class="mobile-user">👤 {{ request.user.username }}</span>
             {% endif %}
             <a class="mobile-link" href="{% url 'drafts_list' %}">Drafts</a>
+            <a class="mobile-link" href="{% url 'queue_list' %}">Queue</a>
             <a class="mobile-link" href="{% url 'accounts:settings' %}">Settings</a>
             <a class="mobile-link" href="{% url 'logout' %}">Logout</a>
           {% else %}

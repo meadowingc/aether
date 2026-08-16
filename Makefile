@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -o pipefail -c
 
-.PHONY: dev migrate format makemigrations check shell create-admin collectstatic serve pull
+.PHONY: dev migrate format makemigrations check shell create-admin collectstatic publish-queue serve pull
 
 dev:
 	DJANGO_ADMIN_ENABLED=True uv run manage.py runserver 127.0.0.1:34782
@@ -26,6 +26,10 @@ create-admin:
 
 collectstatic:
 	uv run manage.py collectstatic --noinput --clear
+
+# Run once per minute from cron/systemd in production.
+publish-queue:
+	DJANGO_PROD=True uv run manage.py publish_queued_notes
 
 pull:
 	git pull

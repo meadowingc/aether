@@ -5,7 +5,7 @@
 
 {% block content %}
   {% url 'create_note' as form_action %}
-  {% include "aether_notes/_note_form.html" with form_action=form_action note_text="" submit_label="Throw" show_save_draft=request.user.is_authenticated is_edit=False errors=None device_id="" user=request.user profile=request.user.profile|default_if_none:"" %}
+  {% include "aether_notes/_note_form.html" with form_action=form_action note_text="" submit_label="Throw" show_save_draft=request.user.is_authenticated show_add_queue=request.user.is_authenticated is_edit=False errors=None device_id="" user=request.user profile=request.user.profile|default_if_none:"" %}
 
   {% if latest_note_list %}
     <section id="soup" class="soup">

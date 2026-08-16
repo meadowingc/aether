@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -12,10 +12,15 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from accounts.social import post_selected_networks_async
 from accounts.utils import rate_limited
 
-from .models import Note, NoteFlag, NoteView
+from .models import Note, NoteFlag, NoteView, PostQueueSettings, QueuedNote
+from .services import (
+    CrosspostSelection,
+    PreparedImages,
+    publish_note,
+    save_unpublished_note,
+)
 
 # Create your views here.
 
@@ -29,105 +34,81 @@ def _save_and_maybe_crosspost(note, text, user, request, *, as_draft=False):
     - request: HttpRequest (for POST flags and FILES)
     - as_draft: True to keep as draft, False to publish
     """
-    note.text = text
     if as_draft:
-        note.is_draft = True
-    else:
-        note.is_draft = False
-        note.pub_date = timezone.now()
+        save_unpublished_note(
+            note,
+            text,
+            uploaded_file=request.FILES.get("image"),
+            image_alt=request.POST.get("image_alt") or "",
+            remove_image=bool(request.POST.get("remove_image")),
+        )
+        return
 
-    # Handle image upload (authenticated users only)
-    image_hq_bytes = None
-    image_bluesky_bytes = None
-    image_compressed_bytes = None
-    image_alt = ""
-
-    uploaded_file = request.FILES.get("image") if request.FILES else None
+    prepared_images = None
+    files_to_delete = []
+    uploaded_file = request.FILES.get("image")
     if uploaded_file and user and user.is_authenticated:
-        from aether_notes.images import process_uploaded_image, convert_for_bluesky
+        from aether_notes.images import process_uploaded_image
         from django.core.files.base import ContentFile
 
+        old_files = [
+            (field.storage, field.name)
+            for field in (note.image, note.image_hq)
+            if field and field.name
+        ]
         raw_bytes = uploaded_file.read()
         if raw_bytes:
-            compressed, hq, bsky = process_uploaded_image(raw_bytes)
-            image_hq_bytes = hq
-            image_bluesky_bytes = bsky
-            image_compressed_bytes = compressed
-
-            # Save the compressed version for display
+            compressed, hq, bluesky = process_uploaded_image(raw_bytes)
             filename = uploaded_file.name or "image.jpg"
             if not filename.lower().endswith((".jpg", ".jpeg")):
-                filename = filename.rsplit(".", 1)[0] + ".jpg" if "." in filename else filename + ".jpg"
+                stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+                filename = f"{stem}.jpg"
             note.image.save(filename, ContentFile(compressed), save=False)
-            # Save the HQ version for crossposting later (e.g. drafts)
-            note.image_hq.save("hq_" + filename, ContentFile(hq), save=False)
             note.image_alt = (request.POST.get("image_alt") or "").strip()[:1000]
-            image_alt = note.image_alt
-
-    # When publishing a draft that already has an image but no new upload,
-    # read the stored HQ image to produce crosspost versions.
-    if not uploaded_file and not as_draft and note.image and note.image_hq:
-        from aether_notes.images import convert_for_bluesky, compress_for_storage
-        try:
-            note.image_hq.open("rb")
-            hq_bytes = note.image_hq.read()
-            note.image_hq.close()
-            if hq_bytes:
-                image_hq_bytes = hq_bytes
-                image_bluesky_bytes = convert_for_bluesky(hq_bytes)
-                image_compressed_bytes = compress_for_storage(hq_bytes)
-                image_alt = note.image_alt or ""
-        except Exception:
-            pass
-
-    # Delete the HQ file once we've extracted what we need for crossposting.
-    if not as_draft and note.image_hq:
-        try:
-            note.image_hq.delete(save=False)
-        except Exception:
-            pass
+            prepared_images = PreparedImages(
+                hq=hq,
+                bluesky=bluesky,
+                compressed=compressed,
+                alt=note.image_alt,
+            )
+            new_names = {note.image.name}
+            files_to_delete = [
+                (storage, name)
+                for storage, name in old_files
+                if name not in new_names
+            ]
+            note.image_hq = None
+    elif request.POST.get("remove_image"):
+        files_to_delete = [
+            (field.storage, field.name)
+            for field in (note.image, note.image_hq)
+            if field and field.name
+        ]
+        note.image = None
         note.image_hq = None
+        note.image_alt = ""
 
-    note.save()
-
-    # When publishing, mirror create_note's crosspost behavior
-    if not as_draft and user and hasattr(user, "profile"):
-        prof = user.profile
-        want_masto = bool(request.POST.get("xp_mastodon"))
-        want_bsky = bool(request.POST.get("xp_bluesky"))
-        want_status_cafe = bool(request.POST.get("xp_status_cafe"))
-        want_tumblr = bool(request.POST.get("xp_tumblr"))
-        want_piclog_blue = bool(request.POST.get("xp_piclog_blue"))
-        status_cafe_face = (
-            request.POST.get("xp_status_cafe_face") or ""
-        ).strip() or None
-
-        if any([want_masto, want_bsky, want_status_cafe, want_tumblr, want_piclog_blue]):
-            try:
-                post_selected_networks_async(
-                    prof,
-                    note.text,
-                    want_masto=want_masto,
-                    want_bluesky=want_bsky,
-                    want_status_cafe=want_status_cafe,
-                    want_tumblr=want_tumblr,
-                    want_piclog_blue=want_piclog_blue,
-                    status_cafe_face=status_cafe_face,
-                    note=note,
-                    image_hq_bytes=image_hq_bytes,
-                    image_bluesky_bytes=image_bluesky_bytes,
-                    image_compressed_bytes=image_compressed_bytes,
-                    image_alt=image_alt,
-                )
-            except Exception:
-                # Defensive: don't let crosspost failures block the request
-                pass
+    note.text = text
+    publish_note(
+        note,
+        user=user,
+        selection=CrosspostSelection.from_post_data(request.POST),
+        prepared_images=prepared_images,
+        async_crossposts=True,
+    )
+    for storage, name in files_to_delete:
+        if storage.exists(name):
+            storage.delete(name)
 
 
 @login_required
 def drafts_list(request):
     """List drafts for the authenticated user."""
-    drafts = Note.objects.filter(user=request.user, is_draft=True).order_by(
+    drafts = Note.objects.filter(
+        user=request.user,
+        is_draft=True,
+        queue_entry__isnull=True,
+    ).order_by(
         "-last_modified"
     )
     return render(request, "aether_notes/drafts.html", {"drafts": drafts})
@@ -137,7 +118,12 @@ def drafts_list(request):
 def edit_draft(request, pk):
     """Edit or publish a draft."""
     try:
-        draft = Note.objects.get(pk=pk, user=request.user, is_draft=True)
+        draft = Note.objects.get(
+            pk=pk,
+            user=request.user,
+            is_draft=True,
+            queue_entry__isnull=True,
+        )
     except Note.DoesNotExist:
         raise Http404("Draft not found")
 
@@ -159,12 +145,201 @@ def edit_draft(request, pk):
             )
             return redirect("index")
         else:
-            draft.save()
+            save_unpublished_note(
+                draft,
+                text,
+                uploaded_file=request.FILES.get("image"),
+                image_alt=request.POST.get("image_alt") or draft.image_alt,
+                remove_image=bool(request.POST.get("remove_image")),
+            )
             return render(
                 request, "aether_notes/edit_draft.html", {"draft": draft, "saved": True}
             )
 
     return render(request, "aether_notes/edit_draft.html", {"draft": draft})
+
+
+def _queue_settings_for(user):
+    settings, _ = PostQueueSettings.objects.get_or_create(user=user)
+    return settings
+
+
+def _lock_queue(user):
+    PostQueueSettings.objects.filter(user=user).update(paused=F("paused"))
+    return PostQueueSettings.objects.get(user=user)
+
+
+def _compact_queue(user):
+    entries = QueuedNote.objects.filter(user=user).order_by("position", "id")
+    for position, entry in enumerate(entries, start=1):
+        if entry.position != position:
+            QueuedNote.objects.filter(pk=entry.pk).update(position=position)
+
+
+@login_required
+def queue_list(request):
+    queue_settings = _queue_settings_for(request.user)
+    entries = QueuedNote.objects.filter(user=request.user).select_related("note")
+    return render(
+        request,
+        "aether_notes/queue.html",
+        {"queue_entries": entries, "queue_settings": queue_settings},
+    )
+
+
+@login_required
+def edit_queue_item(request, pk):
+    _queue_settings_for(request.user)
+    if request.method == "POST":
+        with transaction.atomic():
+            _lock_queue(request.user)
+            try:
+                entry = QueuedNote.objects.select_related("note").get(
+                    pk=pk,
+                    user=request.user,
+                )
+            except QueuedNote.DoesNotExist:
+                raise Http404("Queued note not found")
+
+            text = (request.POST.get("text") or "").strip()
+            if not text:
+                return render(
+                    request,
+                    "aether_notes/edit_queue_item.html",
+                    {"queue_entry": entry, "error": "Text cannot be empty."},
+                )
+            save_unpublished_note(
+                entry.note,
+                text,
+                uploaded_file=request.FILES.get("image"),
+                image_alt=request.POST.get("image_alt") or entry.note.image_alt,
+                remove_image=bool(request.POST.get("remove_image")),
+            )
+            selection = CrosspostSelection.from_post_data(request.POST)
+            entry.crosspost_mastodon = selection.mastodon
+            entry.crosspost_bluesky = selection.bluesky
+            entry.crosspost_status_cafe = selection.status_cafe
+            entry.crosspost_tumblr = selection.tumblr
+            entry.crosspost_piclog_blue = selection.piclog_blue
+            entry.status_cafe_face = selection.status_cafe_face or ""
+            entry.save()
+        messages.success(request, "Queued note updated.")
+        return redirect("queue_list")
+
+    try:
+        entry = QueuedNote.objects.select_related("note").get(
+            pk=pk,
+            user=request.user,
+        )
+    except QueuedNote.DoesNotExist:
+        raise Http404("Queued note not found")
+
+    return render(
+        request,
+        "aether_notes/edit_queue_item.html",
+        {"queue_entry": entry},
+    )
+
+
+@login_required
+@require_POST
+def update_queue_settings(request):
+    try:
+        interval_value = int(request.POST.get("interval_value", ""))
+    except (TypeError, ValueError):
+        interval_value = 0
+    interval_unit = request.POST.get("interval_unit")
+    if not 1 <= interval_value <= 365 or interval_unit not in {
+        PostQueueSettings.UNIT_HOURS,
+        PostQueueSettings.UNIT_DAYS,
+    }:
+        messages.error(request, "Choose an interval from 1 to 365 hours or days.")
+        return redirect("queue_list")
+
+    _queue_settings_for(request.user)
+    with transaction.atomic():
+        queue_settings = _lock_queue(request.user)
+        queue_settings.interval_value = interval_value
+        queue_settings.interval_unit = interval_unit
+        if not queue_settings.paused and QueuedNote.objects.filter(user=request.user).exists():
+            queue_settings.schedule_from()
+        else:
+            queue_settings.next_publish_at = None
+        queue_settings.save()
+    messages.success(request, "Queue interval updated.")
+    return redirect("queue_list")
+
+
+@login_required
+@require_POST
+def toggle_queue(request):
+    _queue_settings_for(request.user)
+    with transaction.atomic():
+        queue_settings = _lock_queue(request.user)
+        queue_settings.paused = not queue_settings.paused
+        if queue_settings.paused:
+            queue_settings.next_publish_at = None
+        elif QueuedNote.objects.filter(user=request.user).exists():
+            queue_settings.schedule_from()
+        queue_settings.save()
+    messages.success(
+        request,
+        "Queue paused." if queue_settings.paused else "Queue resumed.",
+    )
+    return redirect("queue_list")
+
+
+@login_required
+@require_POST
+def move_queue_item(request, pk, direction):
+    if direction not in {"up", "down"}:
+        raise Http404("Invalid queue direction")
+    _queue_settings_for(request.user)
+    with transaction.atomic():
+        _lock_queue(request.user)
+        try:
+            entry = QueuedNote.objects.get(pk=pk, user=request.user)
+        except QueuedNote.DoesNotExist:
+            raise Http404("Queued note not found")
+        target_position = entry.position + (-1 if direction == "up" else 1)
+        neighbor = QueuedNote.objects.filter(
+            user=request.user,
+            position=target_position,
+        ).first()
+        if neighbor:
+            temporary = (
+                QueuedNote.objects.filter(user=request.user).aggregate(Max("position"))[
+                    "position__max"
+                ]
+                + 1
+            )
+            QueuedNote.objects.filter(pk=entry.pk).update(position=temporary)
+            QueuedNote.objects.filter(pk=neighbor.pk).update(position=entry.position)
+            QueuedNote.objects.filter(pk=entry.pk).update(position=target_position)
+    return redirect("queue_list")
+
+
+@login_required
+@require_POST
+def delete_queue_item(request, pk):
+    _queue_settings_for(request.user)
+    with transaction.atomic():
+        _lock_queue(request.user)
+        try:
+            entry = QueuedNote.objects.select_related("note").get(
+                pk=pk,
+                user=request.user,
+            )
+        except QueuedNote.DoesNotExist:
+            raise Http404("Queued note not found")
+        entry.note.delete()
+        _compact_queue(request.user)
+        if not QueuedNote.objects.filter(user=request.user).exists():
+            PostQueueSettings.objects.filter(user=request.user).update(
+                next_publish_at=None
+            )
+    messages.success(request, "Queued note deleted.")
+    return redirect("queue_list")
 
 
 def index(request):
@@ -203,7 +378,6 @@ def index(request):
 
 @rate_limited("create_note", limit=2, window_seconds=60)
 def create_note(request):
-    print("DEBUG: create_note view called, method =", request.method)
     if request.method != "POST":
         return redirect(reverse("index"))
 
@@ -215,6 +389,7 @@ def create_note(request):
 
     # Check if saving as draft
     save_as_draft = "save_draft" in request.POST
+    add_to_queue = "add_queue" in request.POST
 
     if request.user.is_authenticated:
         # Authenticated: ignore provided author, bind to user
@@ -230,6 +405,49 @@ def create_note(request):
             if User.objects.filter(username__iexact=raw_author).exists():
                 messages.error(request, "Reserved username. Sign in to use it.")
                 return redirect(reverse("index"))
+
+    if add_to_queue:
+        if not request.user.is_authenticated:
+            messages.error(request, "Sign in to add notes to your queue.")
+            return redirect(reverse("index"))
+        queue_settings = _queue_settings_for(user)
+        with transaction.atomic():
+            queue_settings = _lock_queue(user)
+            queue_was_empty = not QueuedNote.objects.filter(user=user).exists()
+            new_note = Note(
+                text=text,
+                author=author,
+                user=user,
+                pub_date=timezone.now(),
+                created_device_id=created_device_id,
+            )
+            save_unpublished_note(
+                new_note,
+                text,
+                uploaded_file=request.FILES.get("image"),
+                image_alt=request.POST.get("image_alt") or "",
+                remove_image=False,
+            )
+            max_position = QueuedNote.objects.filter(user=user).aggregate(
+                Max("position")
+            )["position__max"]
+            selection = CrosspostSelection.from_post_data(request.POST)
+            QueuedNote.objects.create(
+                note=new_note,
+                user=user,
+                position=(max_position or 0) + 1,
+                crosspost_mastodon=selection.mastodon,
+                crosspost_bluesky=selection.bluesky,
+                crosspost_status_cafe=selection.status_cafe,
+                crosspost_tumblr=selection.tumblr,
+                crosspost_piclog_blue=selection.piclog_blue,
+                status_cafe_face=selection.status_cafe_face or "",
+            )
+            if queue_was_empty and not queue_settings.paused:
+                queue_settings.schedule_from()
+                queue_settings.save(update_fields=["next_publish_at"])
+        messages.success(request, "Note added to your queue.")
+        return redirect("queue_list")
 
     # validate
     if len(author) > Note._meta.get_field("author").max_length:

@@ -1,5 +1,5 @@
 {# Reusable note form partial. Expects variables: form_action, note_text, submit_label, show_save_draft, is_edit, errors, device_id, user, profile, crosspost fields, etc. #}
-<form class="note-form" action="{{ form_action }}" method="post" enctype="multipart/form-data"{% if has_existing_image %} data-has-existing-image="1"{% endif %}>
+<form class="note-form" action="{{ form_action }}" method="post" enctype="multipart/form-data"{% if has_existing_image %} data-has-existing-image="1"{% endif %}{% if queue_entry %} data-queue-edit="1"{% endif %}>
   {% csrf_token %}
   <label class="sr-only" for="note_text">Note</label>
   <textarea id="note_text" name="text" rows="3" maxlength="2000" placeholder="Go on, throw it into the void…" required autocomplete="off">{{ note_text|default_if_none:"" }}</textarea>
@@ -15,7 +15,10 @@
     </div>
     <div id="image_alt_row" class="image-alt-row" style="display:none">
       <label class="sr-only" for="note_image_alt">Image alt text</label>
-      <input type="text" id="note_image_alt" name="image_alt" placeholder="Describe the image (alt text)" maxlength="1000" autocomplete="off">
+      <input type="text" id="note_image_alt" name="image_alt" value="{{ image_alt_value|default:'' }}" placeholder="Describe the image (alt text)" maxlength="1000" autocomplete="off">
+      {% if has_existing_image %}
+        <label><input type="checkbox" name="remove_image" value="1"> Remove existing image</label>
+      {% endif %}
     </div>
   {% endif %}
   <div class="counter-row">
@@ -25,39 +28,39 @@
         <div class="network-counters">
           {% if p.crosspost_mastodon and p.mastodon_instance and p.mastodon_token %}
             <label class="net-toggle">
-              <input type="checkbox" name="xp_mastodon" id="xp_mastodon" checked>
+              <input type="checkbox" name="xp_mastodon" id="xp_mastodon"{% if not queue_entry or queue_entry.crosspost_mastodon %} checked{% endif %}>
               <span>Mastodon</span>
               <span id="mastodon_counter" class="char-counter small" data-limit="{{ p.mastodon_char_limit|default:2000 }}">0/{{ p.mastodon_char_limit|default:2000 }}</span>
             </label>
           {% endif %}
           {% if p.crosspost_bluesky and p.bluesky_handle and p.bluesky_app_password %}
             <label class="net-toggle">
-              <input type="checkbox" name="xp_bluesky" id="xp_bluesky" checked>
+              <input type="checkbox" name="xp_bluesky" id="xp_bluesky"{% if not queue_entry or queue_entry.crosspost_bluesky %} checked{% endif %}>
               <span>Bluesky</span>
               <span id="bluesky_counter" class="char-counter small" data-limit="300">0/300</span>
             </label>
           {% endif %}
           {% if p.crosspost_status_cafe and p.status_cafe_username and p.status_cafe_password %}
             <label class="net-toggle" id="status_cafe_toggle">
-              <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe" checked>
+              <input type="checkbox" name="xp_status_cafe" id="xp_status_cafe"{% if not queue_entry or queue_entry.crosspost_status_cafe %} checked{% endif %}>
               <span>Status.cafe</span>
               <span id="status_cafe_counter" class="char-counter small" data-limit="140">0/140</span>
               <span class="face-picker-wrap" style="display:inline-flex; align-items:center; gap:4px;">
-                <input type="hidden" name="xp_status_cafe_face" id="xp_status_cafe_face" value="">
+                <input type="hidden" name="xp_status_cafe_face" id="xp_status_cafe_face" value="{{ queue_entry.status_cafe_face|default:'' }}">
                 <button type="button" id="face_display_btn" class="face-emoji-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="face_picker_popup" title="Pick an emoji" data-default="🙂">🙂</button>
               </span>
             </label>
           {% endif %}
           {% if p.crosspost_tumblr and p.tumblr_blog_name and p.tumblr_access_token %}
             <label class="net-toggle">
-              <input type="checkbox" name="xp_tumblr" id="xp_tumblr" checked>
+              <input type="checkbox" name="xp_tumblr" id="xp_tumblr"{% if not queue_entry or queue_entry.crosspost_tumblr %} checked{% endif %}>
               <span>Tumblr</span>
               <span id="tumblr_counter" class="char-counter small" data-limit="4096">0/4096</span>
             </label>
           {% endif %}
           {% if p.crosspost_piclog_blue and p.piclog_blue_email and p.piclog_blue_password %}
             <label class="net-toggle piclog-toggle" id="piclog_blue_toggle" style="display:none" title="Only available when an image is attached">
-              <input type="checkbox" name="xp_piclog_blue" id="xp_piclog_blue" checked>
+              <input type="checkbox" name="xp_piclog_blue" id="xp_piclog_blue"{% if not queue_entry or queue_entry.crosspost_piclog_blue %} checked{% endif %}>
               <span>Piclog.blue</span>
               <span id="piclog_blue_counter" class="char-counter small" data-limit="5000">0/5000</span>
             </label>
@@ -77,18 +80,21 @@
       <input type="hidden" id="note_device_id" name="device_id" value="{{ device_id|default_if_none:"" }}">
       <p class="hint">Posting as <strong>{{ user.username }}</strong></p>
     {% endif %}
-    <button type="submit" name="throw">{% if submit_label %}{{ submit_label }}{% else %}Throw{% endif %}</button>
+    <button type="submit" name="{% if primary_name %}{{ primary_name }}{% else %}throw{% endif %}">{% if submit_label %}{{ submit_label }}{% else %}Throw{% endif %}</button>
     {% if show_save_draft %}
       <button type="submit" name="save_draft" value="1" formnovalidate>Save as draft</button>
     {% endif %}
-    {% if is_edit %}
+    {% if show_add_queue %}
+      <button type="submit" name="add_queue" value="1">Add to queue</button>
+    {% endif %}
+    {% if is_edit and not queue_entry %}
       <button type="submit" name="save_changes" formnovalidate>Save changes</button>
     {% endif %}
   </div>
   {% if errors %}
     <p class="error">{{ errors }}</p>
   {% endif %}
-  <p class="hint">{% if is_edit %}Edit your draft. You can save changes or throw it.{% else %}Public for ~7 days. Please avoid personal info.{% endif %}</p>
+  <p class="hint">{% if queue_entry %}Edit this queued note and its cross-post destinations.{% elif is_edit %}Edit your draft. You can save changes or throw it.{% else %}Public for ~7 days. Please avoid personal info.{% endif %}</p>
 </form>
 
 <style>
@@ -843,13 +849,16 @@
     }
 
     // Persist per-note crosspost toggles
+    const isQueueEdit = document.querySelector('.note-form')?.dataset.queueEdit === '1';
     function restoreToggle(id, storageKey) {
       const el = document.getElementById(id);
       if (!el) return;
       try {
-        const v = localStorage.getItem(storageKey);
-        if (v === '0') el.checked = false;
-        else if (v === '1') el.checked = true; // explicit
+        if (!isQueueEdit) {
+          const v = localStorage.getItem(storageKey);
+          if (v === '0') el.checked = false;
+          else if (v === '1') el.checked = true;
+        }
         el.addEventListener('change', () => {
           try { localStorage.setItem(storageKey, el.checked ? '1' : '0'); } catch(e) {}
         });
@@ -859,12 +868,13 @@
     restoreToggle('xp_bluesky', 'aether_xp_bluesky');
     restoreToggle('xp_status_cafe', 'aether_xp_status_cafe');
     restoreToggle('xp_tumblr', 'aether_xp_tumblr');
+    restoreToggle('xp_piclog_blue', 'aether_xp_piclog_blue');
 
     // Persist chosen Status.cafe face emoji (safe guard if emoji script already handled it)
     const faceInput = document.getElementById('xp_status_cafe_face');
     if (faceInput) {
       try {
-        const savedFace = localStorage.getItem('aether_xp_status_cafe_face');
+        const savedFace = isQueueEdit ? null : localStorage.getItem('aether_xp_status_cafe_face');
         if (savedFace) faceInput.value = savedFace;
         faceInput.addEventListener('input', () => {
           const v = (faceInput.value || '').trim();

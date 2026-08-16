@@ -1,0 +1,78 @@
+{% extends "aether_notes/base.html" %}
+{% load static %}
+
+{% block title %}Queue{% endblock %}
+
+{% block content %}
+  <h2>Your Queue</h2>
+  <section class="queue-settings">
+    <form method="post" action="{% url 'update_queue_settings' %}" class="queue-settings-form">
+      {% csrf_token %}
+      <label for="interval_value">Publish one note every</label>
+      <input id="interval_value" name="interval_value" type="number" min="1" max="365" required value="{{ queue_settings.interval_value }}">
+      <select name="interval_unit" aria-label="Interval unit">
+        <option value="hours"{% if queue_settings.interval_unit == "hours" %} selected{% endif %}>hours</option>
+        <option value="days"{% if queue_settings.interval_unit == "days" %} selected{% endif %}>days</option>
+      </select>
+      <button type="submit">Save interval</button>
+    </form>
+    <form method="post" action="{% url 'toggle_queue' %}">
+      {% csrf_token %}
+      <button type="submit">{% if queue_settings.paused %}Resume queue{% else %}Pause queue{% endif %}</button>
+    </form>
+    <p class="hint">
+      {% if queue_settings.paused %}
+        Paused.
+      {% elif queue_settings.next_publish_at %}
+        Next note: {{ queue_settings.next_publish_at|date:"Y-m-d H:i T" }}.
+      {% else %}
+        Add a note to start the queue.
+      {% endif %}
+    </p>
+  </section>
+
+  {% if queue_entries %}
+    <section class="soup queue-list">
+      {% for entry in queue_entries %}
+        <article class="note-card">
+          <div class="queue-position">#{{ entry.position }}</div>
+          <div class="note-text">{{ entry.note.text|urlize|linebreaksbr }}</div>
+          {% if entry.note.image %}
+            <img src="{{ entry.note.image.url }}" alt="{{ entry.note.image_alt|default:'Queued image' }}" class="note-image" loading="lazy">
+          {% endif %}
+          <p class="hint queue-destinations">
+            Cross-posts:
+            {% if entry.crosspost_mastodon %}Mastodon {% endif %}
+            {% if entry.crosspost_bluesky %}Bluesky {% endif %}
+            {% if entry.crosspost_status_cafe %}Status.cafe {% endif %}
+            {% if entry.crosspost_tumblr %}Tumblr {% endif %}
+            {% if entry.crosspost_piclog_blue %}Piclog.blue{% endif %}
+            {% if not entry.crosspost_mastodon and not entry.crosspost_bluesky and not entry.crosspost_status_cafe and not entry.crosspost_tumblr and not entry.crosspost_piclog_blue %}none{% endif %}
+          </p>
+          <div class="queue-actions">
+            <a href="{% url 'edit_queue_item' entry.pk %}">Edit</a>
+            {% if not forloop.first %}
+              <form method="post" action="{% url 'move_queue_item' entry.pk 'up' %}">
+                {% csrf_token %}<button type="submit" aria-label="Move up">↑</button>
+              </form>
+            {% endif %}
+            {% if not forloop.last %}
+              <form method="post" action="{% url 'move_queue_item' entry.pk 'down' %}">
+                {% csrf_token %}<button type="submit" aria-label="Move down">↓</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'delete_queue_item' entry.pk %}">
+              {% csrf_token %}<button type="submit">Delete</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="empty">Your queue is empty.</p>
+  {% endif %}
+{% endblock content %}
+
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
+{% endblock scripts %}

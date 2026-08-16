@@ -1,6 +1,7 @@
 import datetime
 import uuid
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
@@ -126,3 +127,89 @@ class NoteCrosspost(models.Model):
     def __str__(self) -> str:  # pragma: no cover - trivial
         nid = getattr(self.note, 'id', None)
         return f"NoteCrosspost(note={nid}, network={self.network}, status={self.status})"
+
+
+class PostQueueSettings(models.Model):
+    UNIT_HOURS = "hours"
+    UNIT_DAYS = "days"
+    INTERVAL_UNIT_CHOICES = [
+        (UNIT_HOURS, "Hours"),
+        (UNIT_DAYS, "Days"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_queue_settings",
+    )
+    interval_value = models.PositiveIntegerField(
+        default=24,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+    )
+    interval_unit = models.CharField(
+        max_length=5,
+        choices=INTERVAL_UNIT_CHOICES,
+        default=UNIT_HOURS,
+    )
+    paused = models.BooleanField(default=False)
+    next_publish_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(interval_value__range=(1, 365)),
+                name="post_queue_interval_range",
+            ),
+        ]
+
+    def interval_delta(self) -> datetime.timedelta:
+        if self.interval_unit == self.UNIT_DAYS:
+            return datetime.timedelta(days=self.interval_value)
+        return datetime.timedelta(hours=self.interval_value)
+
+    def schedule_from(self, when=None) -> None:
+        self.next_publish_at = (when or timezone.now()) + self.interval_delta()
+
+    def __str__(self) -> str:
+        return f"PostQueueSettings(user={self.user_id})"
+
+
+class QueuedNote(models.Model):
+    note = models.OneToOneField(
+        Note,
+        on_delete=models.CASCADE,
+        related_name="queue_entry",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="queued_notes",
+    )
+    position = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    crosspost_mastodon = models.BooleanField(default=False)
+    crosspost_bluesky = models.BooleanField(default=False)
+    crosspost_status_cafe = models.BooleanField(default=False)
+    crosspost_tumblr = models.BooleanField(default=False)
+    crosspost_piclog_blue = models.BooleanField(default=False)
+    status_cafe_face = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("position", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "position"),
+                name="unique_user_queue_position",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(position__gte=1),
+                name="queued_note_positive_position",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("user", "position")),
+        ]
+
+    def __str__(self) -> str:
+        return f"QueuedNote(user={self.user_id}, position={self.position})"

@@ -86,3 +86,81 @@
   border: 1px solid var(--border);
   display: block;
 }
+
+.queue-settings,
+.queue-actions,
+.queue-settings-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.queue-settings {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+.queue-settings .hint {
+  flex-basis: 100%;
+}
+.queue-settings input[type="number"] {
+  width: 5rem;
+}
+.queue-settings input,
+.queue-settings select {
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--card-bg);
+  color: var(--ink);
+  font: inherit;
+}
+.queue-settings button,
+.queue-actions button,
+.queue-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2rem;
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  padding: 0.35rem 0.65rem;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+.queue-settings button:hover,
+.queue-actions button:hover,
+.queue-actions a:hover {
+  background: var(--accent);
+  color: var(--card-bg);
+}
+.queue-actions form {
+  display: inline;
+  margin: 0;
+}
+.queue-position {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: 0.35rem;
+}
+.queue-list .note-card {
+  animation: none;
+}
+
+@media (max-width: 720px) {
+  .queue-settings,
+  .queue-settings-form {
+    align-items: stretch;
+  }
+  .queue-settings-form {
+    width: 100%;
+  }
+}

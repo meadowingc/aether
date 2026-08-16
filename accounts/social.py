@@ -611,3 +611,12 @@ def post_selected_networks_async(
         ),
         daemon=True,
     ).start()
+
+
+def post_selected_networks(
+    profile: Profile,
+    text: str,
+    **kwargs,
+) -> None:
+    """Post synchronously for durable background jobs."""
+    _post_selected_networks(profile, text, **kwargs)

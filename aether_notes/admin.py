@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Note, NoteFlag, NoteCrosspost
+from .models import Note, NoteFlag, NoteCrosspost, PostQueueSettings, QueuedNote
 
 
 class HasFlagsFilter(admin.SimpleListFilter):
@@ -55,3 +55,23 @@ class NoteCrosspostAdmin(admin.ModelAdmin):
         if obj.remote_id:
             return obj.remote_id
         return "—"
+
+
+@admin.register(PostQueueSettings)
+class PostQueueSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "interval_value",
+        "interval_unit",
+        "paused",
+        "next_publish_at",
+    )
+    list_filter = ("paused", "interval_unit")
+    search_fields = ("user__username",)
+
+
+@admin.register(QueuedNote)
+class QueuedNoteAdmin(admin.ModelAdmin):
+    list_display = ("user", "position", "note", "created_at")
+    ordering = ("user", "position")
+    search_fields = ("user__username", "note__text")

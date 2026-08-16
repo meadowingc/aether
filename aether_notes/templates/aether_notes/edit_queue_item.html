@@ -1,0 +1,16 @@
+{% extends "aether_notes/base.html" %}
+{% load static %}
+
+{% block title %}Edit Queued Note{% endblock %}
+
+{% block content %}
+  <h2>Edit Queued Note</h2>
+  {% if queue_entry.note.image %}
+    <img src="{{ queue_entry.note.image.url }}" alt="{{ queue_entry.note.image_alt|default:'Queued image' }}" class="note-image" loading="lazy">
+  {% endif %}
+  {% include "aether_notes/_note_form.html" with form_action=request.path note_text=queue_entry.note.text image_alt_value=queue_entry.note.image_alt submit_label="Save queue item" primary_name="save_queue" show_save_draft=False show_add_queue=False is_edit=True has_existing_image=queue_entry.note.image errors=error|default_if_none:"" device_id=queue_entry.note.created_device_id user=request.user profile=request.user.profile|default_if_none:"" queue_entry=queue_entry %}
+{% endblock content %}
+
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'aether_notes/shared.css' %}">
+{% endblock scripts %}
