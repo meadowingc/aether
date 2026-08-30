@@ -224,6 +224,43 @@ class QueueViewTests(TestCase):
         queue_settings.refresh_from_db()
         self.assertIsNone(queue_settings.next_publish_at)
 
+    def test_edit_draft_can_add_note_to_queue(self):
+        draft = make_note(self.user, "original draft")
+
+        response = self.client.post(
+            reverse("edit_draft", args=[draft.pk]),
+            {
+                "text": "updated draft",
+                "add_queue": "1",
+                "xp_mastodon": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("queue_list"))
+        entry = QueuedNote.objects.get(note=draft, user=self.user)
+        self.assertEqual(entry.position, 1)
+        self.assertTrue(entry.crosspost_mastodon)
+        draft.refresh_from_db()
+        self.assertEqual(draft.text, "updated draft")
+        self.assertTrue(draft.is_draft)
+        self.assertIsNotNone(
+            PostQueueSettings.objects.get(user=self.user).next_publish_at
+        )
+
+    def test_edit_draft_explains_existing_image_removal(self):
+        draft = make_note(self.user, "image draft")
+        draft.image.name = "notes/existing.jpg"
+        draft.save(update_fields=["image"])
+
+        response = self.client.get(reverse("edit_draft", args=[draft.pk]))
+
+        self.assertContains(response, "Remove attached image")
+        self.assertContains(
+            response,
+            "The image will be deleted when you save, queue, or publish this note.",
+        )
+        self.assertContains(response, 'class="image-remove-option"')
+
     def test_immediate_posts_and_drafts_still_work(self):
         self.client.post(reverse("create_note"), {"text": "immediate"})
         immediate = Note.objects.get(text="immediate")

@@ -16,10 +16,16 @@
     <div id="image_alt_row" class="image-alt-row" style="display:none">
       <label class="sr-only" for="note_image_alt">Image alt text</label>
       <input type="text" id="note_image_alt" name="image_alt" value="{{ image_alt_value|default:'' }}" placeholder="Describe the image (alt text)" maxlength="1000" autocomplete="off">
-      {% if has_existing_image %}
-        <label><input type="checkbox" name="remove_image" value="1"> Remove existing image</label>
-      {% endif %}
     </div>
+    {% if has_existing_image %}
+      <label class="image-remove-option" for="remove_existing_image">
+        <input type="checkbox" id="remove_existing_image" name="remove_image" value="1">
+        <span>
+          <strong>Remove attached image</strong>
+          <small>The image will be deleted when you save, queue, or publish this note.</small>
+        </span>
+      </label>
+    {% endif %}
   {% endif %}
   <div class="counter-row">
     <span id="note_counter" class="char-counter">0/2000</span>
@@ -94,7 +100,7 @@
   {% if errors %}
     <p class="error">{{ errors }}</p>
   {% endif %}
-  <p class="hint">{% if queue_entry %}Edit this queued note and its cross-post destinations.{% elif is_edit %}Edit your draft. You can save changes or throw it.{% else %}Public for ~7 days. Please avoid personal info.{% endif %}</p>
+  <p class="hint">{% if queue_entry %}Edit this queued note and its cross-post destinations.{% elif is_edit %}Edit your draft. You can save it, add it to the queue, or throw it now.{% else %}Public for ~7 days. Please avoid personal info.{% endif %}</p>
 </form>
 
 <style>
@@ -896,13 +902,15 @@
     const piclogToggle = document.getElementById('piclog_blue_toggle');
     const statusCafeToggle = document.getElementById('status_cafe_toggle');
     const statusCafeCheckbox = document.getElementById('xp_status_cafe');
+    const removeExisting = document.getElementById('remove_existing_image');
     if (!fileInput) return;
 
     const hasExistingImage = fileInput.closest('form')?.dataset.hasExistingImage === '1';
     function updateUI() {
-      const hasFile = (fileInput.files && fileInput.files.length > 0) || hasExistingImage;
+      const hasNewFile = fileInput.files && fileInput.files.length > 0;
+      const removesExisting = removeExisting?.checked;
+      const hasFile = hasNewFile || (hasExistingImage && !removesExisting);
       if (hasFile) {
-        const hasNewFile = fileInput.files && fileInput.files.length > 0;
         filenameSpan.textContent = hasNewFile ? fileInput.files[0].name : '(existing image)';
         clearBtn.style.display = hasNewFile ? '' : 'none';
         if (altRow) altRow.style.display = '';
@@ -921,7 +929,15 @@
       }
     }
 
-    fileInput.addEventListener('change', updateUI);
+    fileInput.addEventListener('change', function() {
+      if (removeExisting && fileInput.files && fileInput.files.length > 0) {
+        removeExisting.checked = false;
+      }
+      updateUI();
+    });
+    if (removeExisting) {
+      removeExisting.addEventListener('change', updateUI);
+    }
     if (clearBtn) {
       clearBtn.addEventListener('click', function() {
         fileInput.value = '';

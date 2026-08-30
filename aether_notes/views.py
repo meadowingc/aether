@@ -144,6 +144,10 @@ def edit_draft(request, pk):
                 draft, text, request.user, request, as_draft=False
             )
             return redirect("index")
+        elif "add_queue" in request.POST:
+            _enqueue_note(draft, text, request.user, request)
+            messages.success(request, "Draft added to your queue.")
+            return redirect("queue_list")
         else:
             save_unpublished_note(
                 draft,
@@ -167,6 +171,38 @@ def _queue_settings_for(user):
 def _lock_queue(user):
     PostQueueSettings.objects.filter(user=user).update(paused=F("paused"))
     return PostQueueSettings.objects.get(user=user)
+
+
+def _enqueue_note(note, text, user, request):
+    _queue_settings_for(user)
+    with transaction.atomic():
+        queue_settings = _lock_queue(user)
+        queue_was_empty = not QueuedNote.objects.filter(user=user).exists()
+        save_unpublished_note(
+            note,
+            text,
+            uploaded_file=request.FILES.get("image"),
+            image_alt=request.POST.get("image_alt") or note.image_alt or "",
+            remove_image=bool(request.POST.get("remove_image")),
+        )
+        max_position = QueuedNote.objects.filter(user=user).aggregate(Max("position"))[
+            "position__max"
+        ]
+        selection = CrosspostSelection.from_post_data(request.POST)
+        QueuedNote.objects.create(
+            note=note,
+            user=user,
+            position=(max_position or 0) + 1,
+            crosspost_mastodon=selection.mastodon,
+            crosspost_bluesky=selection.bluesky,
+            crosspost_status_cafe=selection.status_cafe,
+            crosspost_tumblr=selection.tumblr,
+            crosspost_piclog_blue=selection.piclog_blue,
+            status_cafe_face=selection.status_cafe_face or "",
+        )
+        if queue_was_empty and not queue_settings.paused:
+            queue_settings.schedule_from()
+            queue_settings.save(update_fields=["next_publish_at"])
 
 
 def _compact_queue(user):
@@ -415,42 +451,14 @@ def create_note(request):
         if not request.user.is_authenticated:
             messages.error(request, "Sign in to add notes to your queue.")
             return redirect(reverse("index"))
-        queue_settings = _queue_settings_for(user)
-        with transaction.atomic():
-            queue_settings = _lock_queue(user)
-            queue_was_empty = not QueuedNote.objects.filter(user=user).exists()
-            new_note = Note(
-                text=text,
-                author=author,
-                user=user,
-                pub_date=timezone.now(),
-                created_device_id=created_device_id,
-            )
-            save_unpublished_note(
-                new_note,
-                text,
-                uploaded_file=request.FILES.get("image"),
-                image_alt=request.POST.get("image_alt") or "",
-                remove_image=False,
-            )
-            max_position = QueuedNote.objects.filter(user=user).aggregate(
-                Max("position")
-            )["position__max"]
-            selection = CrosspostSelection.from_post_data(request.POST)
-            QueuedNote.objects.create(
-                note=new_note,
-                user=user,
-                position=(max_position or 0) + 1,
-                crosspost_mastodon=selection.mastodon,
-                crosspost_bluesky=selection.bluesky,
-                crosspost_status_cafe=selection.status_cafe,
-                crosspost_tumblr=selection.tumblr,
-                crosspost_piclog_blue=selection.piclog_blue,
-                status_cafe_face=selection.status_cafe_face or "",
-            )
-            if queue_was_empty and not queue_settings.paused:
-                queue_settings.schedule_from()
-                queue_settings.save(update_fields=["next_publish_at"])
+        new_note = Note(
+            text=text,
+            author=author,
+            user=user,
+            pub_date=timezone.now(),
+            created_device_id=created_device_id,
+        )
+        _enqueue_note(new_note, text, user, request)
         messages.success(request, "Note added to your queue.")
         return redirect("queue_list")
 
