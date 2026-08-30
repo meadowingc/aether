@@ -181,6 +181,49 @@ class QueueViewTests(TestCase):
         self.assertFalse(QueuedNote.objects.exists())
         self.assertFalse(Note.objects.exists())
 
+    def test_queue_rejects_author_longer_than_note_field(self):
+        long_username = "q" * 26
+        user = User.objects.create_user(username=long_username, password="test-password")
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("create_note"),
+            {"text": "invalid queued note", "add_queue": "1"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"ok": False, "error": "author_too_long"})
+        self.assertFalse(Note.objects.filter(user=user).exists())
+        self.assertFalse(QueuedNote.objects.filter(user=user).exists())
+        self.assertFalse(PostQueueSettings.objects.filter(user=user).exists())
+
+    def test_generic_note_deletion_repairs_queue_state(self):
+        first = make_queue_entry(self.user, "first", 1)
+        second = make_queue_entry(self.user, "second", 2)
+        queue_settings = PostQueueSettings.objects.create(
+            user=self.user,
+            next_publish_at=timezone.now() + datetime.timedelta(hours=24),
+        )
+
+        response = self.client.post(
+            reverse("delete_note"),
+            {"note_id": first.note_id, "device_id": "authenticated-user"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        second.refresh_from_db()
+        self.assertEqual(second.position, 1)
+        self.assertIsNotNone(queue_settings.next_publish_at)
+
+        response = self.client.post(
+            reverse("delete_note"),
+            {"note_id": second.note_id, "device_id": "authenticated-user"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        queue_settings.refresh_from_db()
+        self.assertIsNone(queue_settings.next_publish_at)
+
     def test_immediate_posts_and_drafts_still_work(self):
         self.client.post(reverse("create_note"), {"text": "immediate"})
         immediate = Note.objects.get(text="immediate")

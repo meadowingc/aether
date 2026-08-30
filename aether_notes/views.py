@@ -176,6 +176,12 @@ def _compact_queue(user):
             QueuedNote.objects.filter(pk=entry.pk).update(position=position)
 
 
+def _repair_queue_after_deletion(user):
+    _compact_queue(user)
+    if not QueuedNote.objects.filter(user=user).exists():
+        PostQueueSettings.objects.filter(user=user).update(next_publish_at=None)
+
+
 @login_required
 def queue_list(request):
     queue_settings = _queue_settings_for(request.user)
@@ -333,11 +339,7 @@ def delete_queue_item(request, pk):
         except QueuedNote.DoesNotExist:
             raise Http404("Queued note not found")
         entry.note.delete()
-        _compact_queue(request.user)
-        if not QueuedNote.objects.filter(user=request.user).exists():
-            PostQueueSettings.objects.filter(user=request.user).update(
-                next_publish_at=None
-            )
+        _repair_queue_after_deletion(request.user)
     messages.success(request, "Queued note deleted.")
     return redirect("queue_list")
 
@@ -406,6 +408,9 @@ def create_note(request):
                 messages.error(request, "Reserved username. Sign in to use it.")
                 return redirect(reverse("index"))
 
+    if len(author) > Note._meta.get_field("author").max_length:
+        return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
+
     if add_to_queue:
         if not request.user.is_authenticated:
             messages.error(request, "Sign in to add notes to your queue.")
@@ -448,10 +453,6 @@ def create_note(request):
                 queue_settings.save(update_fields=["next_publish_at"])
         messages.success(request, "Note added to your queue.")
         return redirect("queue_list")
-
-    # validate
-    if len(author) > Note._meta.get_field("author").max_length:
-        return JsonResponse({"ok": False, "error": "author_too_long"}, status=400)
 
     if save_as_draft and request.user.is_authenticated:
         new_note = Note(
@@ -620,7 +621,15 @@ def delete_note(request):
                 status=403,
             )
 
-    note.delete()
+    queued_user = (
+        note.user if QueuedNote.objects.filter(note_id=note.pk).exists() else None
+    )
+    with transaction.atomic():
+        if queued_user is not None:
+            _lock_queue(queued_user)
+        note.delete()
+        if queued_user is not None:
+            _repair_queue_after_deletion(queued_user)
     return JsonResponse({"ok": True})
 
 
