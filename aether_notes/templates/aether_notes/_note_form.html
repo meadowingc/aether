@@ -18,13 +18,11 @@
       <input type="text" id="note_image_alt" name="image_alt" value="{{ image_alt_value|default:'' }}" placeholder="Describe the image (alt text)" maxlength="1000" autocomplete="off">
     </div>
     {% if has_existing_image %}
-      <label class="image-remove-option" for="remove_existing_image">
-        <input type="checkbox" id="remove_existing_image" name="remove_image" value="1">
-        <span>
-          <strong>Remove attached image</strong>
-          <small>The image will be deleted when you save, queue, or publish this note.</small>
-        </span>
-      </label>
+      <div class="image-remove-action">
+        <button type="button" id="remove_existing_image" class="image-remove-button" aria-pressed="false">Remove attached image</button>
+        <input type="hidden" id="remove_existing_image_value" name="remove_image" value="1" disabled>
+        <small id="image_remove_status">The current image will be kept.</small>
+      </div>
     {% endif %}
   {% endif %}
   <div class="counter-row">
@@ -903,12 +901,26 @@
     const statusCafeToggle = document.getElementById('status_cafe_toggle');
     const statusCafeCheckbox = document.getElementById('xp_status_cafe');
     const removeExisting = document.getElementById('remove_existing_image');
+    const removeExistingValue = document.getElementById('remove_existing_image_value');
+    const removeStatus = document.getElementById('image_remove_status');
     if (!fileInput) return;
 
     const hasExistingImage = fileInput.closest('form')?.dataset.hasExistingImage === '1';
+    function setRemoveExisting(shouldRemove) {
+      if (!removeExisting || !removeExistingValue) return;
+      removeExistingValue.disabled = !shouldRemove;
+      removeExisting.setAttribute('aria-pressed', shouldRemove ? 'true' : 'false');
+      removeExisting.classList.toggle('is-active', shouldRemove);
+      removeExisting.textContent = shouldRemove ? 'Undo image removal' : 'Remove attached image';
+      if (removeStatus) {
+        removeStatus.textContent = shouldRemove
+          ? 'The image will be deleted when you save, queue, or publish this note.'
+          : 'The current image will be kept.';
+      }
+    }
     function updateUI() {
       const hasNewFile = fileInput.files && fileInput.files.length > 0;
-      const removesExisting = removeExisting?.checked;
+      const removesExisting = removeExistingValue && !removeExistingValue.disabled;
       const hasFile = hasNewFile || (hasExistingImage && !removesExisting);
       if (hasFile) {
         filenameSpan.textContent = hasNewFile ? fileInput.files[0].name : '(existing image)';
@@ -931,12 +943,15 @@
 
     fileInput.addEventListener('change', function() {
       if (removeExisting && fileInput.files && fileInput.files.length > 0) {
-        removeExisting.checked = false;
+        setRemoveExisting(false);
       }
       updateUI();
     });
     if (removeExisting) {
-      removeExisting.addEventListener('change', updateUI);
+      removeExisting.addEventListener('click', function() {
+        setRemoveExisting(removeExistingValue.disabled);
+        updateUI();
+      });
     }
     if (clearBtn) {
       clearBtn.addEventListener('click', function() {

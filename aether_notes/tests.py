@@ -257,9 +257,10 @@ class QueueViewTests(TestCase):
         self.assertContains(response, "Remove attached image")
         self.assertContains(
             response,
-            "The image will be deleted when you save, queue, or publish this note.",
+            'id="remove_existing_image"',
         )
-        self.assertContains(response, 'class="image-remove-option"')
+        self.assertContains(response, 'aria-pressed="false"')
+        self.assertContains(response, "The current image will be kept.")
 
     def test_immediate_posts_and_drafts_still_work(self):
         self.client.post(reverse("create_note"), {"text": "immediate"})

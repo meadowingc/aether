@@ -87,36 +87,28 @@
   display: block;
 }
 
-.image-remove-option {
+.image-remove-action {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.6rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  cursor: pointer;
+  flex-wrap: wrap;
 }
-.image-remove-option input {
-  margin-top: 0.2rem;
-  accent-color: var(--accent);
+.note-form .image-remove-button {
+  padding: 0.45rem 0.65rem;
+  border-color: #b34a4a;
+  color: #d66;
+  font-size: 0.8rem;
 }
-.image-remove-option span {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.note-form .image-remove-button:hover,
+.note-form .image-remove-button.is-active {
+  border-color: #b34a4a;
+  background: #b34a4a;
+  color: #fff;
 }
-.image-remove-option strong {
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-.image-remove-option small {
+.image-remove-action small {
   color: var(--muted);
   font-size: 0.7rem;
   line-height: 1.35;
-}
-.image-remove-option:has(input:checked) {
-  border-color: var(--accent);
-  background: rgba(124, 82, 149, 0.1);
 }
 
 .queue-settings,
